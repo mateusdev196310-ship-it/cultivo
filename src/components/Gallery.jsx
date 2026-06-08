@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Camera, Sparkles, Calendar, ArrowLeft, Leaf, Eye, Send } from 'lucide-react';
-import { getPlants, addPlant, updatePlantPhoto, compressImage } from '../db';
+import { Plus, Camera, Sparkles, Calendar, ArrowLeft, Leaf, Eye, Send, Trash2 } from 'lucide-react';
+import { getPlants, addPlant, updatePlantPhoto, compressImage, deletePlantPhoto } from '../db';
 
 const PHOTO_PRESETS = [
   { label: "Semente/Plantio", url: "https://images.unsplash.com/photo-1532467411038-57680e4ded04?w=600&auto=format&fit=crop&q=60" },
@@ -113,6 +113,23 @@ export default function Gallery({ user }) {
     // Atualizar planta selecionada no detalhe
     setSelectedPlant(updated);
     loadPlants();
+  };
+
+  const handleDeletePhoto = (plantId, day) => {
+    if (!window.confirm("Deseja realmente remover esta foto da galeria? O post correspondente no feed também será removido.")) return;
+    deletePlantPhoto(plantId, day);
+    // Recarregar os dados
+    const allPlants = getPlants();
+    if (user.isAdmin) {
+      setPlants(allPlants);
+      const updated = allPlants.find(p => p.id === plantId);
+      setSelectedPlant(updated || null);
+    } else {
+      const filtered = allPlants.filter(p => p.studentEmail === user.email);
+      setPlants(filtered);
+      const updated = filtered.find(p => p.id === plantId);
+      setSelectedPlant(updated || null);
+    }
   };
 
   return (
@@ -417,7 +434,28 @@ export default function Gallery({ user }) {
                       </div>
                       
                       <div className="timeline-card-content">
-                        <p className="date-small">Registrado em: {entry.date}</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <p className="date-small" style={{ margin: 0 }}>Registrado em: {entry.date}</p>
+                          {user.isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePhoto(selectedPlant.id, entry.day)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#c62828',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '2px',
+                                borderRadius: '4px'
+                              }}
+                              title="Remover esta foto do histórico"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
                         <p className="notes-text">💬 <strong>Minha Anotação:</strong> "{entry.notes}"</p>
                         
                         {/* Caixa de Análise por IA */}

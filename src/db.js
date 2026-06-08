@@ -681,6 +681,7 @@ export function addCommentToPost(postId, studentName, studentEmail, text) {
 // Excluir Post (Moderação)
 export function deletePost(postId) {
   const posts = getPosts();
+  const post = posts.find(p => p.id === postId);
   const filtered = posts.filter(p => p.id !== postId);
   savePosts(filtered);
 
@@ -690,7 +691,61 @@ export function deletePost(postId) {
     });
   }
 
+  if (post) {
+    removePhotoFromPlant(post.plantId, post.day);
+  }
+
   return filtered;
+}
+
+// Remove uma foto específica do histórico de uma planta
+export function removePhotoFromPlant(plantId, day) {
+  const plants = getPlants();
+  const idx = plants.findIndex(p => p.id === plantId);
+  if (idx === -1) return;
+
+  const plant = plants[idx];
+  const updatedPhotos = (plant.photos || []).filter(photo => photo.day !== parseInt(day));
+
+  if (updatedPhotos.length === 0) {
+    // Se não restarem fotos, exclui a planta inteira
+    const filteredPlants = plants.filter(p => p.id !== plantId);
+    savePlants(filteredPlants);
+    if (supabase) {
+      supabase.from('plants').delete().eq('id', plantId).then(({ error }) => {
+        if (error) console.error('[Supabase Error] deletePlant (empty photos):', error);
+      });
+    }
+  } else {
+    // Caso contrário, atualiza a planta com as fotos restantes
+    plant.photos = updatedPhotos;
+    plants[idx] = plant;
+    savePlants(plants);
+    if (supabase) {
+      supabase.from('plants').update({ photos: updatedPhotos }).eq('id', plantId).then(({ error }) => {
+        if (error) console.error('[Supabase Error] updatePlantPhotos (after delete):', error);
+      });
+    }
+  }
+}
+
+// Excluir uma foto da galeria e o post correspondente no feed (Moderação)
+export function deletePlantPhoto(plantId, day) {
+  // 1. Remover a foto da planta
+  removePhotoFromPlant(plantId, day);
+
+  // 2. Remover o post correspondente
+  const posts = getPosts();
+  const targetPost = posts.find(p => p.plantId === plantId && p.day === parseInt(day));
+  if (targetPost) {
+    const filteredPosts = posts.filter(p => p.id !== targetPost.id);
+    savePosts(filteredPosts);
+    if (supabase) {
+      supabase.from('posts').delete().eq('id', targetPost.id).then(({ error }) => {
+        if (error) console.error('[Supabase Error] deletePost (cascade):', error);
+      });
+    }
+  }
 }
 
 // Excluir Comentário (Moderação)
