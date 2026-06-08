@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sprout, User, Shield, Bell, BellOff } from 'lucide-react';
-import { initDb } from './db';
+import { initDb, checkInactivityPenalties } from './db';
 import Auth from './components/Auth';
 import Navbar from './components/Navbar';
 import Learn from './components/Learn';
@@ -33,6 +33,22 @@ export default function App() {
     const startDb = async () => {
       await initDb(true);
       setIsDbReady(true);
+
+      const savedUser = localStorage.getItem('cultiva_user');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        // Rodar verificação de inatividade e atualizar pontos locais se mudou
+        const penaltyUpdated = checkInactivityPenalties(parsed.email);
+        if (penaltyUpdated) {
+          const latestUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+          const cleanEmail = parsed.email.trim().toLowerCase();
+          const found = latestUsers.find(u => u.email === cleanEmail);
+          if (found) {
+            setUser(found);
+            localStorage.setItem('cultiva_user', JSON.stringify(found));
+          }
+        }
+      }
     };
     startDb();
 
@@ -236,6 +252,19 @@ export default function App() {
   const handleLogin = (userData) => {
     setUser(userData);
     localStorage.setItem('cultiva_user', JSON.stringify(userData));
+    
+    // Rodar verificação de inatividade ao logar
+    const penaltyUpdated = checkInactivityPenalties(userData.email);
+    if (penaltyUpdated) {
+      const latestUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+      const cleanEmail = userData.email.trim().toLowerCase();
+      const found = latestUsers.find(u => u.email === cleanEmail);
+      if (found) {
+        setUser(found);
+        localStorage.setItem('cultiva_user', JSON.stringify(found));
+      }
+    }
+
     if (userData.isAdmin) {
       setActiveTab('admin');
     } else {

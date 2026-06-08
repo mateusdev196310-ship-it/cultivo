@@ -12,7 +12,7 @@ const TABS = [
 
 // Tabela de pontos por atividade (vale nota)
 const ACTIVITY_POINTS = {
-  plantio: { label: 'Plantio Inicial', icon: '🌱', pts: 50 },
+  plantio: { label: 'Plantio Inicial', icon: '🌱', pts: 420 },
   atualizacao: { label: 'Atualização Semanal', icon: '📸', pts: 100 },
   curtida: { label: 'Curtida no Feed', icon: '❤️', pts: 5 },
   comentario: { label: 'Comentário no Feed', icon: '💬', pts: 10 },

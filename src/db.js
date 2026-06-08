@@ -526,8 +526,8 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
     });
   }
 
-  // Atribuir 50 pontos pelo novo cultivo
-  awardPoints(studentEmail, 50, studentName);
+  // Atribuir 420 pontos pelo novo cultivo
+  awardPoints(studentEmail, 420, studentName);
 
   return newPlant;
 }
@@ -863,5 +863,67 @@ export function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0
     reader.onerror = (err) => reject(err);
     reader.readAsDataURL(file);
   });
+}
+
+// Verifica se passarem mais de 7 dias sem atualizar e desconta 50 pontos
+export function checkInactivityPenalties(studentEmail) {
+  if (!studentEmail) return false;
+  
+  // E-mails administrativos não participam de ranking/penalidades
+  const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
+  if (ADMIN_EMAILS.includes(studentEmail.trim().toLowerCase())) return false;
+
+  const plants = getPlants();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const today = new Date(todayStr);
+
+  let updatedAny = false;
+
+  const updatedPlants = plants.map(plant => {
+    if (plant.studentEmail.trim().toLowerCase() !== studentEmail.trim().toLowerCase()) {
+      return plant;
+    }
+    if (!plant.photos || plant.photos.length === 0) {
+      return plant;
+    }
+
+    // Obter data da última foto
+    const lastPhoto = plant.photos[plant.photos.length - 1];
+    const lastPhotoDate = new Date(lastPhoto.date);
+
+    // Calcular diferença em dias
+    const diffTime = today.getTime() - lastPhotoDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 7) {
+      // Verificar se já foi penalizado por esta inatividade (último período pós-última-foto)
+      const lastPenalty = plant.lastPenaltyDate ? new Date(plant.lastPenaltyDate) : null;
+      
+      // Se não foi penalizado ainda desde a última foto ou a última penalidade foi antes/junto da última foto
+      if (!lastPenalty || lastPenalty.getTime() <= lastPhotoDate.getTime()) {
+        // Deduz 50 pontos
+        awardPoints(studentEmail, -50, plant.studentName);
+        plant.lastPenaltyDate = todayStr;
+        updatedAny = true;
+      }
+    }
+    return plant;
+  });
+
+  if (updatedAny) {
+    savePlants(updatedPlants);
+    if (supabase) {
+      // Sincronizar com o Supabase para cada planta atualizada
+      updatedPlants.forEach(plant => {
+        if (plant.studentEmail.trim().toLowerCase() === studentEmail.trim().toLowerCase() && plant.lastPenaltyDate === todayStr) {
+          supabase.from('plants').update({ lastPenaltyDate: todayStr }).eq('id', plant.id).then(({ error }) => {
+            if (error) console.error('[Supabase Error] update lastPenaltyDate:', error);
+          });
+        }
+      });
+    }
+  }
+
+  return updatedAny;
 }
 

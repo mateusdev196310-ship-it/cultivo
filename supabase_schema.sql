@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS public.plants (
     name TEXT NOT NULL,
     species TEXT NOT NULL,
     "startDate" TEXT NOT NULL,
-    photos JSONB NOT NULL DEFAULT '[]'::jsonb
+    photos JSONB NOT NULL DEFAULT '[]'::jsonb,
+    "lastPenaltyDate" TEXT
 );
 
 -- Create table for public.posts
