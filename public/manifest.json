@@ -1,0 +1,17 @@
+{
+  "short_name": "Cultiva",
+  "name": "Cultiva APP - Educação Ambiental",
+  "description": "Um aplicativo educacional sobre sustentabilidade e jardinagem para adolescentes.",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#fbfbf8",
+  "theme_color": "#2e7d32",
+  "display": "standalone",
+  "orientation": "portrait"
+}

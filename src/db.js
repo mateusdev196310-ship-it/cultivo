@@ -1,0 +1,560 @@
+import { initialPlants, initialPosts, initialUsers } from './data/mockData';
+import { supabase } from './supabaseClient';
+
+// Função para simular a análise de estágio por IA com base na espécie da planta e no dia de cultivo
+export function analyzePlantStage(species, day) {
+  const cleanSpecies = species.trim() || "Planta";
+  const numDay = parseInt(day) || 1;
+
+  if (numDay <= 3) {
+    return {
+      stageName: "Germinação - Absorção de Água",
+      analysis: `A semente de ${cleanSpecies} está na fase inicial de absorver água. A casca protetora está amaciando para que a primeira raiz (radícula) possa sair nos próximos dias. Mantenha a terra ou algodão úmidos, mas sem encharcar!`
+    };
+  } else if (numDay <= 6) {
+    return {
+      stageName: "Germinação - Raiz e Caule",
+      analysis: `O broto de ${cleanSpecies} está a caminho da superfície! A primeira raiz (radícula) já se fixou no solo para buscar água e o primeiro caule (caulículo) está crescendo para cima para alcançar a luz do sol. Evite mexer na terra para não machucar a plantinha delicada.`
+    };
+  } else if (numDay <= 10) {
+    return {
+      stageName: "Planta Bebê - Folhas Iniciais",
+      analysis: `Que vitória! A ${cleanSpecies} saiu da terra e as primeiras folhas da semente (cotilédones) se abriram completamente. Elas captam a luz para começar a fazer a primeira fotossíntese. Deixe a plantinha em um local bem iluminado!`
+    };
+  } else if (numDay <= 18) {
+    return {
+      stageName: "Crescimento - Folhas Definitivas",
+      analysis: `Muito bem! As folhas da semente cumpriram seu papel e agora a ${cleanSpecies} desenvolveu as primeiras folhas verdadeiras (folhas definitivas da planta). O caule está se fortalecendo e ela está produzindo sua própria energia (glicose). Regue sempre que a terra secar por cima.`
+    };
+  } else if (numDay <= 25) {
+    return {
+      stageName: "Crescimento do Ramo e Raízes",
+      analysis: `Excelente evolução! A sua ${cleanSpecies} está criando novos galhos e mais folhas. As raízes estão se espalhando no vaso para sugar mais nutrientes do solo. Adicione um pouco de adubo orgânico para dar mais energia!`
+    };
+  } else {
+    return {
+      stageName: "Planta Jovem Forte",
+      analysis: `Parabéns! A ${cleanSpecies} já é uma planta jovem independente e forte. Ela tem várias folhas adultas fazendo fotossíntese (fase clara de luz e fase escura de produção de alimento) para fabricar sua energia. Continue cuidando com regas regulares e sol direto.`
+    };
+  }
+}
+
+// Inicializar banco de dados no LocalStorage se não existir
+export async function initDb(forceSync = false) {
+  // Migração: Se houver fotos antigas de chocolate no cache do navegador do usuário, limpa para forçar o recarregamento
+  const cachedPlants = localStorage.getItem('cultiva_plants');
+  if (cachedPlants && cachedPlants.includes('photo-1599599810769-bcde5a160d32')) {
+    localStorage.removeItem('cultiva_plants');
+    localStorage.removeItem('cultiva_posts');
+    localStorage.removeItem('cultiva_users');
+    localStorage.removeItem('cultiva_user'); // força novo login para recarregar tudo limpo
+  }
+
+  if (!localStorage.getItem('cultiva_plants')) {
+    localStorage.setItem('cultiva_plants', JSON.stringify(initialPlants));
+  }
+  if (!localStorage.getItem('cultiva_posts')) {
+    localStorage.setItem('cultiva_posts', JSON.stringify(initialPosts));
+  }
+  if (!localStorage.getItem('cultiva_users')) {
+    localStorage.setItem('cultiva_users', JSON.stringify(initialUsers));
+  }
+  if (!localStorage.getItem('cultiva_feedback')) {
+    localStorage.setItem('cultiva_feedback', JSON.stringify([]));
+  }
+  if (!localStorage.getItem('cultiva_turmas')) {
+    localStorage.setItem('cultiva_turmas', JSON.stringify([]));
+  }
+
+  // Sincronização com o Supabase (se disponível e forçada no início do app)
+  if (supabase && forceSync) {
+    try {
+      const [
+        { data: turmas, error: errorTurmas },
+        { data: users, error: errorUsers },
+        { data: plants, error: errorPlants },
+        { data: posts, error: errorPosts },
+        { data: feedback, error: errorFeedback }
+      ] = await Promise.all([
+        supabase.from('turmas').select('*'),
+        supabase.from('users').select('*'),
+        supabase.from('plants').select('*'),
+        supabase.from('posts').select('*'),
+        supabase.from('feedback').select('*')
+      ]);
+
+      if (errorTurmas) console.warn('[Supabase Sync] Erro ao buscar turmas:', errorTurmas);
+      else if (turmas) localStorage.setItem('cultiva_turmas', JSON.stringify(turmas));
+
+      if (errorUsers) console.warn('[Supabase Sync] Erro ao buscar usuários:', errorUsers);
+      else if (users) localStorage.setItem('cultiva_users', JSON.stringify(users));
+
+      if (errorPlants) console.warn('[Supabase Sync] Erro ao buscar plantas:', errorPlants);
+      else if (plants) localStorage.setItem('cultiva_plants', JSON.stringify(plants));
+
+      if (errorPosts) console.warn('[Supabase Sync] Erro ao buscar posts:', errorPosts);
+      else if (posts) {
+        // Ordena para que os IDs maiores (mais recentes) fiquem no topo
+        const sortedPosts = [...posts].sort((a, b) => b.id.localeCompare(a.id));
+        localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
+      }
+
+      if (errorFeedback) console.warn('[Supabase Sync] Erro ao buscar feedback:', errorFeedback);
+      else if (feedback) localStorage.setItem('cultiva_feedback', JSON.stringify(feedback));
+
+      console.log('%c[Cultiva] Dados sincronizados com o Supabase com sucesso!', 'color: #22c55e; font-weight: bold;');
+    } catch (err) {
+      console.warn('[Cultiva] Falha na sincronização inicial com o Supabase. Usando cache offline:', err);
+    }
+  }
+}
+
+// ====== SISTEMA DE TURMAS ======
+
+// Obter todas as turmas
+export function getTurmas() {
+  initDb();
+  return JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
+}
+
+// Salvar turmas
+function saveTurmas(turmas) {
+  localStorage.setItem('cultiva_turmas', JSON.stringify(turmas));
+}
+
+// Criar nova turma (ADM)
+export function createTurma(nome, fotoUrl) {
+  const turmas = getTurmas();
+  const newTurma = {
+    id: 'turma-' + Date.now(),
+    nome: nome.trim(),
+    fotoUrl: fotoUrl || null,
+    criadaEm: new Date().toISOString().split('T')[0]
+  };
+  turmas.push(newTurma);
+  saveTurmas(turmas);
+
+  if (supabase) {
+    supabase.from('turmas').insert([newTurma]).then(({ error }) => {
+      if (error) console.error('[Supabase Error] createTurma:', error);
+    });
+  }
+
+  return newTurma;
+}
+
+// Excluir turma (ADM)
+export function deleteTurma(turmaId) {
+  const turmas = getTurmas().filter(t => t.id !== turmaId);
+  saveTurmas(turmas);
+
+  if (supabase) {
+    supabase.from('turmas').delete().eq('id', turmaId).then(({ error }) => {
+      if (error) console.error('[Supabase Error] deleteTurma:', error);
+    });
+  }
+
+  return turmas;
+}
+
+// Atualizar foto de uma turma
+export function updateTurmaFoto(turmaId, fotoUrl) {
+  const turmas = getTurmas();
+  const idx = turmas.findIndex(t => t.id === turmaId);
+  if (idx === -1) return null;
+  turmas[idx].fotoUrl = fotoUrl;
+  saveTurmas(turmas);
+
+  if (supabase) {
+    supabase.from('turmas').update({ fotoUrl }).eq('id', turmaId).then(({ error }) => {
+      if (error) console.error('[Supabase Error] updateTurmaFoto:', error);
+    });
+  }
+
+  return turmas[idx];
+}
+
+// Obter todas as plantas do LocalStorage
+export function getPlants() {
+  initDb();
+  return JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+}
+
+// Obter todos os posts do LocalStorage
+export function getPosts() {
+  initDb();
+  return JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+}
+
+// Obter todos os alunos e pontuações do LocalStorage
+export function getUsers() {
+  initDb();
+  return JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+}
+
+// Salvar plantas no LocalStorage
+function savePlants(plants) {
+  localStorage.setItem('cultiva_plants', JSON.stringify(plants));
+}
+
+// Salvar posts no LocalStorage
+function savePosts(posts) {
+  localStorage.setItem('cultiva_posts', JSON.stringify(posts));
+}
+
+// Salvar usuários no LocalStorage
+export function saveUsers(users) {
+  localStorage.setItem('cultiva_users', JSON.stringify(users));
+}
+
+// Registrar ou buscar aluno no login (com turmaId)
+export function registerOrGetUser(name, email, isAdmin, turmaId) {
+  initDb();
+  const cleanEmail = email.trim().toLowerCase();
+  
+  if (isAdmin) {
+    return { name, email: cleanEmail, isAdmin: true, points: 0 };
+  }
+
+  const users = getUsers();
+  let userIndex = users.findIndex(u => u.email === cleanEmail);
+  
+  if (userIndex === -1) {
+    const newUser = { email: cleanEmail, name: name.trim(), points: 0, turmaId: turmaId || null };
+    users.push(newUser);
+    saveUsers(users);
+
+    if (supabase) {
+      supabase.from('users').insert([newUser]).then(({ error }) => {
+        if (error) console.error('[Supabase Error] registerOrGetUser (insert):', error);
+      });
+    }
+
+    return { ...newUser, isAdmin: false };
+  } else {
+    // Atualiza turmaId se fornecido
+    if (turmaId) {
+      users[userIndex].turmaId = turmaId;
+      saveUsers(users);
+
+      if (supabase) {
+        supabase.from('users').update({ turmaId }).eq('email', cleanEmail).then(({ error }) => {
+          if (error) console.error('[Supabase Error] registerOrGetUser (update):', error);
+        });
+      }
+    }
+    return { ...users[userIndex], isAdmin: false };
+  }
+}
+
+// Obter Ranking Leaderboard
+export function getLeaderboard() {
+  const users = getUsers();
+  // Ordena por pontuação de forma decrescente
+  return [...users].sort((a, b) => b.points - a.points);
+}
+
+// Atribuir Pontuação para um Aluno
+export function awardPoints(studentEmail, amount, studentName) {
+  const users = getUsers();
+  const cleanEmail = studentEmail.trim().toLowerCase();
+  let userIndex = users.findIndex(u => u.email === cleanEmail);
+  let updatedUser;
+
+  if (userIndex === -1) {
+    updatedUser = { email: cleanEmail, name: studentName || "Estudante", points: amount, turmaId: null, isAdmin: false };
+    users.push(updatedUser);
+  } else {
+    users[userIndex].points += amount;
+    updatedUser = users[userIndex];
+  }
+
+  saveUsers(users);
+
+  // Atualizar a sessão do usuário logado se for ele mesmo
+  const session = localStorage.getItem('cultiva_user');
+  if (session) {
+    const parsed = JSON.parse(session);
+    if (parsed.email === cleanEmail) {
+      parsed.points = updatedUser.points;
+      localStorage.setItem('cultiva_user', JSON.stringify(parsed));
+    }
+  }
+
+  if (supabase) {
+    supabase.from('users').upsert([updatedUser]).then(({ error }) => {
+      if (error) console.error('[Supabase Error] awardPoints:', error);
+    });
+  }
+
+  return updatedUser;
+}
+
+// Adicionar uma nova planta (Galeria Verde) -> Ganha 50 Pontos
+export function addPlant(studentName, studentEmail, name, species, photoUrl, notes) {
+  const plants = getPlants();
+  const posts = getPosts();
+
+  const newPlantId = 'plant-' + Date.now();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const analysisResult = analyzePlantStage(species, 1);
+
+  const newPhotoEntry = {
+    day: 1,
+    date: todayStr,
+    url: photoUrl || "https://images.unsplash.com/photo-1532467411038-57680e4ded04?w=400&auto=format&fit=crop&q=60",
+    stageName: analysisResult.stageName,
+    analysis: analysisResult.analysis,
+    notes: notes || "Plantei minha sementinha!"
+  };
+
+  const newPlant = {
+    id: newPlantId,
+    studentName,
+    studentEmail,
+    name,
+    species,
+    startDate: todayStr,
+    photos: [newPhotoEntry]
+  };
+
+  plants.push(newPlant);
+  savePlants(plants);
+
+  // Adicionar automaticamente ao Feed Verde
+  const newPost = {
+    id: 'post-' + Date.now(),
+    plantId: newPlantId,
+    studentName,
+    studentEmail,
+    plantName: name,
+    day: 1,
+    date: todayStr,
+    url: newPhotoEntry.url,
+    stageName: newPhotoEntry.stageName,
+    notes: newPhotoEntry.notes,
+    likes: [],
+    comments: []
+  };
+
+  posts.unshift(newPost);
+  savePosts(posts);
+
+  if (supabase) {
+    Promise.all([
+      supabase.from('plants').insert([newPlant]),
+      supabase.from('posts').insert([newPost])
+    ]).then(([resPlants, resPosts]) => {
+      if (resPlants.error) console.error('[Supabase Error] addPlant (plants):', resPlants.error);
+      if (resPosts.error) console.error('[Supabase Error] addPlant (posts):', resPosts.error);
+    });
+  }
+
+  // Atribuir 50 pontos pelo novo cultivo
+  awardPoints(studentEmail, 50, studentName);
+
+  return newPlant;
+}
+
+// Adicionar foto semanal para uma planta (Dia 7, Dia 14, etc.) -> Ganha 100 Pontos
+export function updatePlantPhoto(plantId, day, photoUrl, notes) {
+  const plants = getPlants();
+  const posts = getPosts();
+
+  const plantIndex = plants.findIndex(p => p.id === plantId);
+  if (plantIndex === -1) return null;
+
+  const plant = plants[plantIndex];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const analysisResult = analyzePlantStage(plant.species, day);
+
+  const newPhotoEntry = {
+    day: parseInt(day),
+    date: todayStr,
+    url: photoUrl || "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&auto=format&fit=crop&q=60",
+    stageName: analysisResult.stageName,
+    analysis: analysisResult.analysis,
+    notes: notes || `Atualização da planta - Dia ${day}`
+  };
+
+  plant.photos.push(newPhotoEntry);
+  plant.photos.sort((a, b) => a.day - b.day);
+  
+  plants[plantIndex] = plant;
+  savePlants(plants);
+
+  // Adicionar post ao Feed Verde
+  const newPost = {
+    id: 'post-' + Date.now(),
+    plantId: plantId,
+    studentName: plant.studentName,
+    studentEmail: plant.studentEmail,
+    plantName: plant.name,
+    day: parseInt(day),
+    date: todayStr,
+    url: newPhotoEntry.url,
+    stageName: newPhotoEntry.stageName,
+    notes: newPhotoEntry.notes,
+    likes: [],
+    comments: []
+  };
+
+  posts.unshift(newPost);
+  savePosts(posts);
+
+  if (supabase) {
+    Promise.all([
+      supabase.from('plants').update({ photos: plant.photos }).eq('id', plantId),
+      supabase.from('posts').insert([newPost])
+    ]).then(([resPlants, resPosts]) => {
+      if (resPlants.error) console.error('[Supabase Error] updatePlantPhoto (plants):', resPlants.error);
+      if (resPosts.error) console.error('[Supabase Error] updatePlantPhoto (posts):', resPosts.error);
+    });
+  }
+
+  // Atribuir 100 pontos por nova evolução
+  awardPoints(plant.studentEmail, 100, plant.studentName);
+
+  return plant;
+}
+
+// Curtir / Descurtir Post -> Ganha 5 pontos se for curtir
+export function toggleLikePost(postId, studentEmail) {
+  const posts = getPosts();
+  const postIndex = posts.findIndex(p => p.id === postId);
+  if (postIndex === -1) return null;
+
+  const post = posts[postIndex];
+  const likedIndex = post.likes.indexOf(studentEmail);
+  const isLiking = likedIndex === -1;
+
+  if (isLiking) {
+    post.likes.push(studentEmail);
+  } else {
+    post.likes.splice(likedIndex, 1);
+  }
+
+  posts[postIndex] = post;
+  savePosts(posts);
+
+  if (supabase) {
+    supabase.from('posts').update({ likes: post.likes }).eq('id', postId).then(({ error }) => {
+      if (error) console.error('[Supabase Error] toggleLikePost:', error);
+    });
+  }
+
+  // Se estiver curtindo (e não descurtindo), ganha 5 pontos
+  if (isLiking) {
+    awardPoints(studentEmail, 5, "Estudante");
+  }
+
+  return post;
+}
+
+// Comentar no Post -> Ganha 10 pontos
+export function addCommentToPost(postId, studentName, studentEmail, text) {
+  const posts = getPosts();
+  const postIndex = posts.findIndex(p => p.id === postId);
+  if (postIndex === -1) return null;
+
+  const post = posts[postIndex];
+  const newComment = {
+    id: 'c-' + Date.now(),
+    studentName,
+    studentEmail,
+    text,
+    date: new Date().toISOString().split('T')[0]
+  };
+
+  post.comments.push(newComment);
+  posts[postIndex] = post;
+  savePosts(posts);
+
+  if (supabase) {
+    supabase.from('posts').update({ comments: post.comments }).eq('id', postId).then(({ error }) => {
+      if (error) console.error('[Supabase Error] addCommentToPost:', error);
+    });
+  }
+
+  // Atribuir 10 pontos pelo comentário construtivo
+  awardPoints(studentEmail, 10, studentName);
+
+  return post;
+}
+
+// Excluir Post (Moderação)
+export function deletePost(postId) {
+  const posts = getPosts();
+  const filtered = posts.filter(p => p.id !== postId);
+  savePosts(filtered);
+
+  if (supabase) {
+    supabase.from('posts').delete().eq('id', postId).then(({ error }) => {
+      if (error) console.error('[Supabase Error] deletePost:', error);
+    });
+  }
+
+  return filtered;
+}
+
+// Excluir Comentário (Moderação)
+export function deleteComment(postId, commentId) {
+  const posts = getPosts();
+  const postIndex = posts.findIndex(p => p.id === postId);
+  if (postIndex === -1) return null;
+
+  const post = posts[postIndex];
+  post.comments = post.comments.filter(c => c.id !== commentId);
+  posts[postIndex] = post;
+  savePosts(posts);
+
+  if (supabase) {
+    supabase.from('posts').update({ comments: post.comments }).eq('id', postId).then(({ error }) => {
+      if (error) console.error('[Supabase Error] deleteComment:', error);
+    });
+  }
+
+  return post;
+}
+
+// Obter feedbacks da aula
+export function getClassFeedback() {
+  initDb();
+  return JSON.parse(localStorage.getItem('cultiva_feedback') || '[]');
+}
+
+// Enviar feedback da aula (ganha 10 pontos de recompensa!)
+export function submitClassFeedback(studentEmail, studentName, vote) {
+  initDb();
+  const feedbackList = getClassFeedback();
+  const cleanEmail = studentEmail.trim().toLowerCase();
+  
+  const existingIdx = feedbackList.findIndex(f => f.email === cleanEmail);
+  const feedbackEntry = {
+    email: cleanEmail,
+    name: studentName,
+    vote,
+    date: new Date().toISOString().split('T')[0]
+  };
+
+  if (existingIdx > -1) {
+    feedbackList[existingIdx] = feedbackEntry;
+  } else {
+    feedbackList.push(feedbackEntry);
+  }
+
+  localStorage.setItem('cultiva_feedback', JSON.stringify(feedbackList));
+
+  if (supabase) {
+    supabase.from('feedback').upsert([feedbackEntry]).then(({ error }) => {
+      if (error) console.error('[Supabase Error] submitClassFeedback:', error);
+    });
+  }
+  
+  // Dar 10 pontos ao estudante como incentivo por votar
+  awardPoints(cleanEmail, 10, studentName);
+
+  return feedbackList;
+}
+
