@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Camera, Sparkles, Calendar, ArrowLeft, Leaf, Eye, Send } from 'lucide-react';
-import { getPlants, addPlant, updatePlantPhoto } from '../db';
+import { getPlants, addPlant, updatePlantPhoto, compressImage } from '../db';
 
 const PHOTO_PRESETS = [
   { label: "Semente/Plantio", url: "https://images.unsplash.com/photo-1532467411038-57680e4ded04?w=600&auto=format&fit=crop&q=60" },
@@ -314,12 +314,15 @@ export default function Gallery({ user }) {
                     accept="image/*"
                     capture="environment"
                     style={{ display: 'none' }}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => setUpdatePhoto(ev.target.result);
-                        reader.readAsDataURL(file);
+                        try {
+                          const compressed = await compressImage(file);
+                          setUpdatePhoto(compressed);
+                        } catch (err) {
+                          console.error("Erro ao compactar foto:", err);
+                        }
                       }
                     }}
                   />
@@ -508,12 +511,15 @@ export default function Gallery({ user }) {
                     accept="image/*"
                     capture="environment"
                     style={{ display: 'none' }}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => setNewPhoto(ev.target.result);
-                        reader.readAsDataURL(file);
+                        try {
+                          const compressed = await compressImage(file);
+                          setNewPhoto(compressed);
+                        } catch (err) {
+                          console.error("Erro ao compactar foto:", err);
+                        }
                       }
                     }}
                   />

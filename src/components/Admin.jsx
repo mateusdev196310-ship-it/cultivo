@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, Users, Sprout, BarChart3, MessageSquare, Heart, RefreshCw, Plus, Trash2, Camera, X } from 'lucide-react';
-import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma } from '../db';
+import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma, compressImage, deletePlant } from '../db';
+
 
 const TABS = [
   { id: 'dashboard', label: '📊 Painel', icon: BarChart3 },
@@ -95,12 +96,19 @@ export default function Admin() {
   })).sort((a, b) => b.count - a.count);
 
   // Handler para foto da nova turma
-  const handleNewTurmaFotoChange = (e) => {
+  const handleNewTurmaFotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setNewTurmaFoto(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file);
+      setNewTurmaFoto(compressed);
+    } catch (err) {
+      console.error("Erro ao comprimir imagem:", err);
+      // Fallback a FileReader caso falhe
+      const reader = new FileReader();
+      reader.onload = (ev) => setNewTurmaFoto(ev.target.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   // Handler para criar turma
@@ -120,16 +128,31 @@ export default function Admin() {
     loadAdminData();
   };
 
+  // Handler para excluir planta/projeto (Moderação)
+  const handleDeletePlant = (plantId) => {
+    if (!window.confirm('Excluir este projeto de cultivo e todas as postagens associadas a ele?')) return;
+    deletePlant(plantId);
+    loadAdminData();
+  };
+
   // Handler para atualizar foto da turma existente
-  const handleTurmaFotoChange = (turmaId, e) => {
+  const handleTurmaFotoChange = async (turmaId, e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      updateTurmaFoto(turmaId, ev.target.result);
+    try {
+      const compressed = await compressImage(file);
+      updateTurmaFoto(turmaId, compressed);
       loadAdminData();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Erro ao comprimir imagem:", err);
+      // Fallback
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        updateTurmaFoto(turmaId, ev.target.result);
+        loadAdminData();
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -261,8 +284,16 @@ export default function Admin() {
                         <div className="stage-cell">
                           <span className="badge-stage">{lastPhoto?.stageName || 'Semente'}</span>
                         </div>
-                        <div className="actions-cell text-right">
+                        <div className="actions-cell text-right" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                           <span className="date-info">Dia {lastPhoto?.day || 1}</span>
+                          <button 
+                            className="btn-turma-delete" 
+                            style={{ padding: '4px 8px', margin: 0, height: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                            onClick={() => handleDeletePlant(plant.id)}
+                            title="Excluir projeto de cultivo"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
                     );

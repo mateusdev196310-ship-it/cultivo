@@ -565,6 +565,30 @@ export function updatePlantPhoto(plantId, day, photoUrl, notes) {
   return plant;
 }
 
+// Excluir Planta e todos os seus posts associados (Moderação)
+export function deletePlant(plantId) {
+  const plants = getPlants();
+  const posts = getPosts();
+
+  const filteredPlants = plants.filter(p => p.id !== plantId);
+  const filteredPosts = posts.filter(p => p.plantId !== plantId);
+
+  savePlants(filteredPlants);
+  savePosts(filteredPosts);
+
+  if (supabase) {
+    Promise.all([
+      supabase.from('plants').delete().eq('id', plantId),
+      supabase.from('posts').delete().eq('plantId', plantId)
+    ]).then(([resPlants, resPosts]) => {
+      if (resPlants.error) console.error('[Supabase Error] deletePlant (plants):', resPlants.error);
+      if (resPosts.error) console.error('[Supabase Error] deletePlant (posts):', resPosts.error);
+    });
+  }
+
+  return filteredPlants;
+}
+
 // Curtir / Descurtir Post -> Ganha 5 pontos se for curtir
 export function toggleLikePost(postId, studentEmail) {
   const posts = getPosts();
@@ -702,5 +726,45 @@ export function submitClassFeedback(studentEmail, studentName, vote) {
   awardPoints(cleanEmail, 10, studentName);
 
   return feedbackList;
+}
+
+// Compactar imagem usando Canvas para evitar falhas de payload no Supabase e LocalStorage
+export function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = (err) => reject(err);
+      img.src = e.target.result;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 }
 
