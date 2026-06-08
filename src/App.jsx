@@ -55,6 +55,20 @@ export default function App() {
     }
   }, []);
 
+  // Evitar que o Render entre em suspensão enquanto o usuário estiver ativo na página
+  useEffect(() => {
+    const keepAlive = () => {
+      fetch(window.location.href, { mode: 'no-cors' })
+        .then(() => console.log('[Cultiva] Keep-alive ping enviado com sucesso.'))
+        .catch(err => console.warn('[Cultiva] Erro no ping keep-alive:', err));
+    };
+
+    // Pinga a cada 5 minutos (300.000 ms)
+    const interval = setInterval(keepAlive, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Função que verifica e dispara o lembrete diário
   const checkAndSendDailyReminder = () => {
     const enabled = localStorage.getItem(NOTIF_ENABLED_KEY) === 'true';
