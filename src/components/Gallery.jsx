@@ -30,6 +30,14 @@ export default function Gallery({ user }) {
   const [updateStageName, setUpdateStageName] = useState("Broto Inicial");
   const [updateNotes, setUpdateNotes] = useState('');
 
+  // Campos do Diário Geral
+  const [showDiaryForm, setShowDiaryForm] = useState(false);
+  const [selectedDiaryPlantId, setSelectedDiaryPlantId] = useState('');
+  const [diaryDay, setDiaryDay] = useState(1);
+  const [diaryPhoto, setDiaryPhoto] = useState(PHOTO_PRESETS[1].url);
+  const [diaryStageName, setDiaryStageName] = useState("Broto Inicial");
+  const [diaryNotes, setDiaryNotes] = useState('');
+
   // Estado para exibir análise pós-publicação
   const [publishedAnalysis, setPublishedAnalysis] = useState(null);
 
@@ -37,10 +45,15 @@ export default function Gallery({ user }) {
   const loadPlants = () => {
     // Alunos comuns vêem apenas suas plantas. Administrador vê tudo.
     const allPlants = getPlants();
+    let studentPlants = [];
     if (user.isAdmin) {
-      setPlants(allPlants);
+      studentPlants = allPlants;
     } else {
-      setPlants(allPlants.filter(p => p.studentEmail === user.email));
+      studentPlants = allPlants.filter(p => p.studentEmail === user.email);
+    }
+    setPlants(studentPlants);
+    if (studentPlants.length > 0) {
+      setSelectedDiaryPlantId(prev => prev || studentPlants[0].id);
     }
   };
 
@@ -130,6 +143,38 @@ export default function Gallery({ user }) {
       const updated = filtered.find(p => p.id === plantId);
       setSelectedPlant(updated || null);
     }
+  };
+
+  const handleDiarySubmit = (e) => {
+    e.preventDefault();
+    if (!selectedDiaryPlantId) return;
+
+    const plantToUpdate = plants.find(p => p.id === selectedDiaryPlantId);
+    if (!plantToUpdate) return;
+
+    const updated = updatePlantPhoto(
+      selectedDiaryPlantId,
+      diaryDay,
+      diaryPhoto,
+      diaryNotes.trim() || `Registro diário de ${plantToUpdate.name} no Dia ${diaryDay}.`,
+      diaryStageName
+    );
+
+    if (updated && updated.photos && updated.photos.length > 0) {
+      const entry = updated.photos[updated.photos.length - 1];
+      setPublishedAnalysis({
+        name: updated.name,
+        stageName: entry.stageName,
+        analysis: entry.analysis,
+        day: entry.day,
+        url: entry.url
+      });
+    }
+
+    // Limpar e fechar
+    setDiaryNotes('');
+    setShowDiaryForm(false);
+    loadPlants();
   };
 
   return (
@@ -276,37 +321,40 @@ export default function Gallery({ user }) {
             <button 
               className="btn btn-primary btn-block update-trigger-btn"
               onClick={() => {
-                const lastPhoto = selectedPlant.photos[selectedPlant.photos.length - 1];
-                const nextDay = lastPhoto ? lastPhoto.day + 7 : 7;
-                setUpdateDay(nextDay);
+                const days = Math.max(1, Math.floor((new Date() - new Date(selectedPlant.startDate)) / (1000 * 60 * 60 * 24)) + 1);
+                setUpdateDay(days);
                 const presetIndex = Math.min(selectedPlant.photos.length, PHOTO_PRESETS.length - 1);
                 setUpdatePhoto(PHOTO_PRESETS[presetIndex].url);
                 setUpdateStageName(PHOTO_PRESETS[presetIndex].label);
                 setShowUpdateForm(true);
               }}
             >
-              <Camera size={18} style={{ marginRight: 8 }} /> Registrar Foto Semanal
+              <Camera size={18} style={{ marginRight: 8 }} /> 📖 Registrar no Diário
             </button>
           )}
 
           {/* FORMULÁRIO DE ATUALIZAÇÃO SEMANAL */}
           {showUpdateForm && (
             <form onSubmit={handleUpdatePlant} className="card-nature form-update animate-fade-in">
-              <h3>Nova Atualização Semanal</h3>
+              <h3>📖 Novo Registro no Diário</h3>
               
               <div className="input-group">
-                <label>Dia do Cultivo</label>
-                <select 
+                <label htmlFor="update-day-input">Dia do Cultivo</label>
+                <input 
+                  id="update-day-input"
+                  type="number" 
+                  min="1"
                   value={updateDay} 
-                  onChange={(e) => setUpdateDay(parseInt(e.target.value))}
-                  className="select-custom"
-                >
-                  <option value={7}>Dia 7 (Uma Semana)</option>
-                  <option value={14}>Dia 14 (Duas Semanas)</option>
-                  <option value={21}>Dia 21 (Três Semanas)</option>
-                  <option value={28}>Dia 28 (Quatro Semanas)</option>
-                  <option value={35}>Dia 35 (Cinco Semanas)</option>
-                </select>
+                  onChange={(e) => setUpdateDay(parseInt(e.target.value) || 1)}
+                  className="input-custom"
+                  style={{
+                    padding: '10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-color)',
+                    width: '100%'
+                  }}
+                  required
+                />
               </div>
 
               {/* Botão de Câmera para Atualização Semanal */}
@@ -488,18 +536,187 @@ export default function Gallery({ user }) {
             </div>
             
             {!user.isAdmin && (
-              <button 
-                className="btn btn-primary"
-                onClick={() => {
-                  setNewPhoto(PHOTO_PRESETS[0].url);
-                  setNewStageName("Semente/Plantio");
-                  setShowAddForm(true);
-                }}
-              >
-                <Plus size={18} style={{ marginRight: 4 }} /> Nova Planta
-              </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {plants.length > 0 && (
+                  <button 
+                    className="btn btn-secondary animate-fade-in"
+                    onClick={() => {
+                      setSelectedDiaryPlantId(plants[0].id);
+                      const days = Math.max(1, Math.floor((new Date() - new Date(plants[0].startDate)) / (1000 * 60 * 60 * 24)) + 1);
+                      setDiaryDay(days);
+                      setDiaryPhoto(PHOTO_PRESETS[1].url);
+                      setDiaryStageName("Broto Inicial");
+                      setShowDiaryForm(true);
+                      setShowAddForm(false);
+                    }}
+                  >
+                    📖 Diário da Planta
+                  </button>
+                )}
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setNewPhoto(PHOTO_PRESETS[0].url);
+                    setNewStageName("Semente/Plantio");
+                    setShowAddForm(true);
+                    setShowDiaryForm(false);
+                  }}
+                >
+                  <Plus size={18} style={{ marginRight: 4 }} /> Nova Planta
+                </button>
+              </div>
             )}
           </div>
+
+          {/* FORMULÁRIO DO DIÁRIO GERAL */}
+          {showDiaryForm && (
+            <form onSubmit={handleDiarySubmit} className="card-nature form-add-plant animate-slide-down">
+              <h3>📖 Registrar no Diário da Planta</h3>
+              
+              <div className="input-group">
+                <label htmlFor="diary-plant-select">Selecione qual Planta atualizar</label>
+                <select
+                  id="diary-plant-select"
+                  value={selectedDiaryPlantId}
+                  onChange={(e) => {
+                    const plantId = e.target.value;
+                    setSelectedDiaryPlantId(plantId);
+                    const selected = plants.find(p => p.id === plantId);
+                    if (selected) {
+                      const days = Math.max(1, Math.floor((new Date() - new Date(selected.startDate)) / (1000 * 60 * 60 * 24)) + 1);
+                      setDiaryDay(days);
+                    }
+                  }}
+                  className="select-custom"
+                  required
+                >
+                  {plants.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.species})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="diary-day-input">Dia do Cultivo</label>
+                <input
+                  id="diary-day-input"
+                  type="number"
+                  min="1"
+                  value={diaryDay}
+                  onChange={(e) => setDiaryDay(parseInt(e.target.value) || 1)}
+                  className="input-custom"
+                  style={{
+                    padding: '10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-color)',
+                    width: '100%'
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Botão de Câmera para Registrar no Diário */}
+              <div className="input-group" style={{ marginBottom: '16px' }}>
+                <label>Foto da Planta 📸</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '10px',
+                      backgroundColor: 'var(--bg-app)',
+                      border: '1px dashed var(--primary)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => document.getElementById('camera-diary-input').click()}
+                  >
+                    <Camera size={18} /> Câmera / Tirar Foto
+                  </button>
+                  <input
+                    id="camera-diary-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        try {
+                          const compressed = await compressImage(file);
+                          setDiaryPhoto(compressed);
+                        } catch (err) {
+                          console.error("Erro ao compactar foto:", err);
+                        }
+                      }
+                    }}
+                  />
+                  {diaryPhoto && (
+                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Pré-visualização da captura:</span>
+                      <img
+                        src={diaryPhoto}
+                        alt="Preview diário"
+                        style={{ maxWidth: '100%', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', border: '2px solid var(--primary)' }}
+                      />
+                    </div>
+                  )}
+                  <p style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-dark)', margin: '8px 0 4px 0' }}>❓ Em que fase está sua plantinha?</p>
+                  <div className="preset-selector" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    {PHOTO_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`preset-btn ${diaryStageName === preset.label ? 'active' : ''}`}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: diaryStageName === preset.label ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                          backgroundColor: diaryStageName === preset.label ? 'var(--primary-light)' : 'white',
+                          color: diaryStageName === preset.label ? 'var(--primary-dark)' : 'var(--text-muted)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          setDiaryStageName(preset.label);
+                          if (!diaryPhoto || !diaryPhoto.startsWith('data:')) {
+                            setDiaryPhoto(preset.url);
+                          }
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="diary-notes-input">Suas Anotações / Observações</label>
+                <textarea
+                  id="diary-notes-input"
+                  placeholder="Como está sua planta hoje? Alguma novidade?"
+                  value={diaryNotes}
+                  onChange={(e) => setDiaryNotes(e.target.value)}
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDiaryForm(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Registrar Diário 📖
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* FORMULÁRIO PARA CADASTRAR NOVA PLANTA */}
           {showAddForm && (
