@@ -433,10 +433,14 @@ export function awardPoints(studentEmail, amount, studentName) {
   let updatedUser;
 
   if (userIndex === -1) {
-    updatedUser = { email: cleanEmail, name: studentName || "Estudante", points: amount, turmaId: null, isAdmin: false };
+    const startPoints = amount < 0 ? 0 : amount;
+    updatedUser = { email: cleanEmail, name: studentName || "Estudante", points: startPoints, turmaId: null, isAdmin: false };
     users.push(updatedUser);
   } else {
     users[userIndex].points += amount;
+    if (users[userIndex].points < 0) {
+      users[userIndex].points = 0;
+    }
     updatedUser = users[userIndex];
   }
 
@@ -595,6 +599,7 @@ export function deletePlant(plantId) {
   const plants = getPlants();
   const posts = getPosts();
 
+  const plant = plants.find(p => p.id === plantId);
   const filteredPlants = plants.filter(p => p.id !== plantId);
   const filteredPosts = posts.filter(p => p.plantId !== plantId);
 
@@ -609,6 +614,12 @@ export function deletePlant(plantId) {
       if (resPlants.error) console.error('[Supabase Error] deletePlant (plants):', resPlants.error);
       if (resPosts.error) console.error('[Supabase Error] deletePlant (posts):', resPosts.error);
     });
+  }
+
+  if (plant) {
+    // Deduz 50 pontos por foto removida
+    const numPhotos = plant.photos ? plant.photos.length : 1;
+    awardPoints(plant.studentEmail, -50 * numPhotos, plant.studentName);
   }
 
   return filteredPlants;
@@ -693,6 +704,8 @@ export function deletePost(postId) {
 
   if (post) {
     removePhotoFromPlant(post.plantId, post.day);
+    // Deduz 50 pontos no ranking por foto removida pelo ADM
+    awardPoints(post.studentEmail, -50, post.studentName);
   }
 
   return filtered;
@@ -731,19 +744,23 @@ export function removePhotoFromPlant(plantId, day) {
 
 // Excluir uma foto da galeria e o post correspondente no feed (Moderação)
 export function deletePlantPhoto(plantId, day) {
+  const plants = getPlants();
+  const plant = plants.find(p => p.id === plantId);
+  
   // 1. Remover a foto da planta
   removePhotoFromPlant(plantId, day);
 
   // 2. Remover o post correspondente
   const posts = getPosts();
   const targetPost = posts.find(p => p.plantId === plantId && p.day === parseInt(day));
+  
   if (targetPost) {
-    const filteredPosts = posts.filter(p => p.id !== targetPost.id);
-    savePosts(filteredPosts);
-    if (supabase) {
-      supabase.from('posts').delete().eq('id', targetPost.id).then(({ error }) => {
-        if (error) console.error('[Supabase Error] deletePost (cascade):', error);
-      });
+    // Deleta o post, o que por consequência deduz os 50 pontos
+    deletePost(targetPost.id);
+  } else {
+    // Se por acaso não tinha post no feed (só na timeline), deduz os 50 pontos aqui
+    if (plant) {
+      awardPoints(plant.studentEmail, -50, plant.studentName);
     }
   }
 }
