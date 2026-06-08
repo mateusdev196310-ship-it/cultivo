@@ -35,33 +35,24 @@ O **Supabase** fornecerá o banco de dados PostgreSQL na nuvem para armazenar to
 
 ---
 
-## Parte 2: Implantando no Render (Site Estático) 🌐
+## Parte 2: Implantando no Render (Serviço Web) 🌐
 
-O **Render** hospedará o frontend React do Cultiva de forma gratuita.
+O **Render** hospedará o frontend e o servidor Node.js auto-ping do Cultiva de forma gratuita.
 
-### Método A: Usando o Blueprint (Mais Rápido)
-1. Certifique-se de que o seu código com os novos arquivos (`render.yaml`, `supabaseClient.js`, etc.) esteja no seu repositório do GitHub (privado ou público).
-2. Acesse o painel do [Render](https://dashboard.render.com).
-3. Clique em **New +** e selecione **Blueprint**.
-4. Conecte o repositório do seu projeto.
-5. O Render detectará automaticamente o arquivo `render.yaml` e solicitará as variáveis de ambiente:
-   - `VITE_SUPABASE_URL` (Sua URL do Supabase)
-   - `VITE_SUPABASE_ANON_KEY` (Sua chave Anon do Supabase)
-6. Clique em **Apply** e o Render fará o build e deploy automaticamente!
-
-### Método B: Configuração Manual
-Se preferir configurar manualmente na interface do Render:
-1. Clique em **New +** -> **Static Site**.
-2. Conecte o repositório do GitHub.
-3. Insira as seguintes configurações:
+### Configuração do Web Service no Render
+1. Acesse o painel do [Render](https://dashboard.render.com).
+2. Clique em **New +** e selecione **Web Service**.
+3. Conecte o repositório do GitHub.
+4. Insira as seguintes configurações na página:
    - **Name:** `cultiva-app`
-   - **Build Command:** `npm run build`
-   - **Publish Directory:** `dist`
-4. Expanda a seção **Environment Variables** (Variáveis de Ambiente) e adicione:
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `node server.js`
+5. Role até a seção **Environment Variables** (Variáveis de Ambiente) e clique em **Add Environment Variable** para adicionar:
    - `VITE_SUPABASE_URL` ➔ `[Sua URL do Supabase]`
    - `VITE_SUPABASE_ANON_KEY` ➔ `[Sua chave Anon]`
-5. Clique em **Create Static Site**.
-6. Após alguns minutos de build, o Render fornecerá uma URL pública do tipo `https://cultiva-app.onrender.com`.
+6. Clique em **Create Web Service**.
+7. Após concluir o build, o Render fornecerá a URL pública do seu aplicativo e o servidor começará a fazer pings automáticos para si mesmo a cada 5 minutos para se manter ativo.
+
 
 ---
 

@@ -24,6 +24,7 @@ export default function App() {
   const [isDbReady, setIsDbReady] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifStatus, setNotifStatus] = useState(''); // mensagem de status para o usuário
+  const [installPrompt, setInstallPrompt] = useState(null); // controle de instalação do PWA
   const intervalRef = useRef(null);
   const swRef = useRef(null); // referência para o ServiceWorkerRegistration
 
@@ -68,6 +69,30 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Capturar evento de instalação do PWA
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', () => {
+      setInstallPrompt(null);
+      console.log('[Cultiva] PWA instalado com sucesso!');
+    });
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    console.log(`[Cultiva] Instalação do PWA pelo usuário: ${outcome}`);
+    setInstallPrompt(null);
+  };
 
   // Função que verifica e dispara o lembrete diário
   const checkAndSendDailyReminder = () => {
@@ -249,6 +274,11 @@ export default function App() {
           </div>
 
           <div className="header-user-profile">
+            {installPrompt && (
+              <button className="btn-install-pwa animate-pulse" onClick={handleInstallPwa}>
+                📥 Baixar App
+              </button>
+            )}
             <div className="user-info-text">
               <span className="user-name-label">{user.name}</span>
               {user.isAdmin ? (

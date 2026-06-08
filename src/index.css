@@ -2947,4 +2947,37 @@ select option {
   color: var(--text-main);
 }
 
+/* Estilo do Botão PWA */
+.btn-install-pwa {
+  background-color: var(--accent);
+  color: var(--text-main);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(251, 192, 45, 0.3);
+  transition: all 0.2s ease;
+  margin-right: 8px;
+}
+
+.btn-install-pwa:hover {
+  transform: scale(1.05);
+  background-color: #f9a825;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite ease-in-out;
+}
+
+
 
