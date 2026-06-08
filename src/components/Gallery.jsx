@@ -21,11 +21,13 @@ export default function Gallery({ user }) {
   const [newName, setNewName] = useState('');
   const [newSpecies, setNewSpecies] = useState('Feijão');
   const [newPhoto, setNewPhoto] = useState(PHOTO_PRESETS[0].url);
+  const [newStageName, setNewStageName] = useState("Semente/Plantio");
   const [newNotes, setNewNotes] = useState('');
 
   // Campos de atualização semanal
   const [updateDay, setUpdateDay] = useState(7);
   const [updatePhoto, setUpdatePhoto] = useState(PHOTO_PRESETS[1].url);
+  const [updateStageName, setUpdateStageName] = useState("Broto Inicial");
   const [updateNotes, setUpdateNotes] = useState('');
 
   // Estado para exibir análise pós-publicação
@@ -57,7 +59,8 @@ export default function Gallery({ user }) {
       newName.trim(),
       newSpecies,
       newPhoto,
-      newNotes.trim() || `Iniciei o cultivo de ${newName}!`
+      newNotes.trim() || `Iniciei o cultivo de ${newName}!`,
+      newStageName
     );
 
     if (newPlant && newPlant.photos && newPlant.photos.length > 0) {
@@ -88,7 +91,8 @@ export default function Gallery({ user }) {
       selectedPlant.id,
       updateDay,
       updatePhoto,
-      updateNotes.trim() || `Registro de acompanhamento da planta no Dia ${updateDay}.`
+      updateNotes.trim() || `Registro de acompanhamento da planta no Dia ${updateDay}.`,
+      updateStageName
     );
 
     if (updated && updated.photos && updated.photos.length > 0) {
@@ -260,6 +264,7 @@ export default function Gallery({ user }) {
                 setUpdateDay(nextDay);
                 const presetIndex = Math.min(selectedPlant.photos.length, PHOTO_PRESETS.length - 1);
                 setUpdatePhoto(PHOTO_PRESETS[presetIndex].url);
+                setUpdateStageName(PHOTO_PRESETS[presetIndex].label);
                 setShowUpdateForm(true);
               }}
             >
@@ -336,14 +341,30 @@ export default function Gallery({ user }) {
                       />
                     </div>
                   )}
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Ou escolha um exemplo:</p>
-                  <div className="preset-selector" style={{ marginTop: '4px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-dark)', margin: '8px 0 4px 0' }}>❓ Em que fase está sua plantinha?</p>
+                  <div className="preset-selector" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                     {PHOTO_PRESETS.map((preset, idx) => (
                       <button
                         key={idx}
                         type="button"
-                        className={`preset-btn ${updatePhoto === preset.url ? 'active' : ''}`}
-                        onClick={() => setUpdatePhoto(preset.url)}
+                        className={`preset-btn ${updateStageName === preset.label ? 'active' : ''}`}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: updateStageName === preset.label ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                          backgroundColor: updateStageName === preset.label ? 'var(--primary-light)' : 'white',
+                          color: updateStageName === preset.label ? 'var(--primary-dark)' : 'var(--text-muted)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          setUpdateStageName(preset.label);
+                          // Se o usuário ainda não tirou uma foto própria (não é base64), atualiza para o preset correspondente
+                          if (!updatePhoto || !updatePhoto.startsWith('data:')) {
+                            setUpdatePhoto(preset.url);
+                          }
+                        }}
                       >
                         {preset.label}
                       </button>
@@ -431,7 +452,11 @@ export default function Gallery({ user }) {
             {!user.isAdmin && (
               <button 
                 className="btn btn-primary"
-                onClick={() => setShowAddForm(true)}
+                onClick={() => {
+                  setNewPhoto(PHOTO_PRESETS[0].url);
+                  setNewStageName("Semente/Plantio");
+                  setShowAddForm(true);
+                }}
               >
                 <Plus size={18} style={{ marginRight: 4 }} /> Nova Planta
               </button>
@@ -533,14 +558,30 @@ export default function Gallery({ user }) {
                       />
                     </div>
                   )}
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Ou escolha um exemplo:</p>
-                  <div className="preset-selector" style={{ marginTop: '4px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-dark)', margin: '8px 0 4px 0' }}>❓ Em que fase está sua plantinha?</p>
+                  <div className="preset-selector" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                     {PHOTO_PRESETS.map((preset, idx) => (
                       <button
                         key={idx}
                         type="button"
-                        className={`preset-btn ${newPhoto === preset.url ? 'active' : ''}`}
-                        onClick={() => setNewPhoto(preset.url)}
+                        className={`preset-btn ${newStageName === preset.label ? 'active' : ''}`}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: newStageName === preset.label ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                          backgroundColor: newStageName === preset.label ? 'var(--primary-light)' : 'white',
+                          color: newStageName === preset.label ? 'var(--primary-dark)' : 'var(--text-muted)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          setNewStageName(preset.label);
+                          // Se o usuário ainda não tirou uma foto própria (não é base64), atualiza para o preset correspondente
+                          if (!newPhoto || !newPhoto.startsWith('data:')) {
+                            setNewPhoto(preset.url);
+                          }
+                        }}
                       >
                         {preset.label}
                       </button>

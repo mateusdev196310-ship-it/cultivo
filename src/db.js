@@ -462,7 +462,7 @@ export function awardPoints(studentEmail, amount, studentName) {
 }
 
 // Adicionar uma nova planta (Galeria Verde) -> Ganha 50 Pontos
-export function addPlant(studentName, studentEmail, name, species, photoUrl, notes) {
+export function addPlant(studentName, studentEmail, name, species, photoUrl, notes, customStageName) {
   const plants = getPlants();
   const posts = getPosts();
 
@@ -475,7 +475,7 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
     day: 1,
     date: todayStr,
     url: photoUrl || "https://images.unsplash.com/photo-1532467411038-57680e4ded04?w=400&auto=format&fit=crop&q=60",
-    stageName: analysisResult.stageName,
+    stageName: customStageName || analysisResult.stageName,
     analysis: analysisResult.analysis,
     notes: notes || "Plantei minha sementinha!"
   };
@@ -529,7 +529,7 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
 }
 
 // Adicionar foto semanal para uma planta (Dia 7, Dia 14, etc.) -> Ganha 100 Pontos
-export function updatePlantPhoto(plantId, day, photoUrl, notes) {
+export function updatePlantPhoto(plantId, day, photoUrl, notes, customStageName) {
   const plants = getPlants();
   const posts = getPosts();
 
@@ -544,7 +544,7 @@ export function updatePlantPhoto(plantId, day, photoUrl, notes) {
     day: parseInt(day),
     date: todayStr,
     url: photoUrl || "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&auto=format&fit=crop&q=60",
-    stageName: analysisResult.stageName,
+    stageName: customStageName || analysisResult.stageName,
     analysis: analysisResult.analysis,
     notes: notes || `Atualização da planta - Dia ${day}`
   };
