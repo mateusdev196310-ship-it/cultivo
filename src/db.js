@@ -111,10 +111,24 @@ export async function initDb(forceSync = false) {
 
 // ====== SISTEMA DE TURMAS ======
 
+// Sanitizar URLs de imagens para evitar que imagens corrompidas ou gigantes quebrem a exibição
+export function sanitizeImageUrl(url) {
+  if (!url) return null;
+  // Se for uma imagem base64 gigante (maior que ~1MB ou 1.3M caracteres) ou corrompida
+  if (typeof url === 'string' && url.startsWith('data:image/') && url.length > 1300000) {
+    return "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=600&auto=format&fit=crop&q=60";
+  }
+  return url;
+}
+
 // Obter todas as turmas
 export function getTurmas() {
   initDb();
-  return JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
+  const turmas = JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
+  return turmas.map(t => ({
+    ...t,
+    fotoUrl: sanitizeImageUrl(t.fotoUrl)
+  }));
 }
 
 // Salvar turmas
@@ -177,13 +191,24 @@ export function updateTurmaFoto(turmaId, fotoUrl) {
 // Obter todas as plantas do LocalStorage
 export function getPlants() {
   initDb();
-  return JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+  const plants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+  return plants.map(plant => ({
+    ...plant,
+    photos: (plant.photos || []).map(photo => ({
+      ...photo,
+      url: sanitizeImageUrl(photo.url)
+    }))
+  }));
 }
 
 // Obter todos os posts do LocalStorage
 export function getPosts() {
   initDb();
-  return JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+  const posts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+  return posts.map(post => ({
+    ...post,
+    url: sanitizeImageUrl(post.url)
+  }));
 }
 
 // Obter todos os alunos e pontuações do LocalStorage
