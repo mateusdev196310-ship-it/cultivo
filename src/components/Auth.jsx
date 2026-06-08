@@ -49,11 +49,7 @@ export default function Auth({ onLogin }) {
           setError('Alunos precisam preencher o nome completo.');
           return;
         }
-        if (turmas.length > 0 && !turmaId) {
-          setError('Por favor, escolha sua turma para se cadastrar.');
-          return;
-        }
-        const loggedUser = await registerStudent(name.trim(), cleanEmail, password, turmaId || null);
+        const loggedUser = await registerStudent(name.trim(), cleanEmail, password, null);
         onLogin(loggedUser);
       }
     } catch (err) {
@@ -189,40 +185,7 @@ export default function Auth({ onLogin }) {
             </div>
           </div>
 
-          {/* Turma (apenas no Cadastro para Alunos) */}
-          {mode === 'register' && turmas.length > 0 && (
-            <div className="input-group animate-fade-in" style={{ marginBottom: '16px' }}>
-              <label htmlFor="turma">Sua Turma 🏫</label>
-              <div className="input-wrapper">
-                <Users size={18} className="input-icon" />
-                <select
-                  id="turma"
-                  value={turmaId}
-                  onChange={(e) => {
-                    setTurmaId(e.target.value);
-                    setError('');
-                  }}
-                  style={{
-                    width: '100%',
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    paddingLeft: '36px',
-                    height: '100%',
-                    fontSize: '14px',
-                    color: 'var(--text-main)',
-                    cursor: 'pointer'
-                  }}
-                  required
-                >
-                  <option value="">— Escolha sua turma —</option>
-                  {turmas.map(t => (
-                    <option key={t.id} value={t.id}>{t.nome}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
+
 
           {error && <div className="error-message" style={{
             color: '#d32f2f',

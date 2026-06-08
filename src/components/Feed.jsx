@@ -114,7 +114,7 @@ export default function Feed({ user }) {
 
                 {/* Imagem do Post */}
                 <div className="post-image">
-                  <img src={post.url} alt={`Plant update day ${post.day}`} referrerPolicy="no-referrer" />
+                  <img src={post.url || "https://images.unsplash.com/photo-1532467411038-57680e4ded04?w=600&auto=format&fit=crop&q=60"} alt={post.plantName} />
                   <span className="post-stage-tag">{post.stageName}</span>
                 </div>
 

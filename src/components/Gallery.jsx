@@ -388,7 +388,7 @@ export default function Gallery({ user }) {
 
                     <div className="timeline-card card-nature">
                       <div className="timeline-card-image">
-                        <img src={entry.url} alt={`Dia ${entry.day}`} referrerPolicy="no-referrer" />
+                        <img src={entry.url} alt={`Dia ${entry.day}`} />
                         <span className="stage-tag">{entry.stageName}</span>
                       </div>
                       
@@ -587,7 +587,7 @@ export default function Gallery({ user }) {
                     onClick={() => setSelectedPlant(plant)}
                   >
                     <div className="plant-card-image">
-                      <img src={lastPhoto?.url} alt={plant.name} referrerPolicy="no-referrer" />
+                      <img src={lastPhoto?.url} alt={plant.name} />
                       <span className="stage-badge">{lastPhoto?.stageName || 'Semente'}</span>
                     </div>
 
