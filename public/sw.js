@@ -109,8 +109,13 @@ self.addEventListener('push', (e) => {
 // Receber mensagem do app principal para disparar notificação local
 self.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'DAILY_REMINDER') {
-    const idx = Math.floor(Math.random() * MENSAGENS_LEMBRETE.length);
-    const msg = MENSAGENS_LEMBRETE[idx];
+    const windowContext = e.data.window || 'morning';
+    const windowMsgs = {
+      morning: { title: '🌿 Bom dia! Hora do sol ☀️', body: 'Comece o dia colocando sua plantinha para tomar sol e regue se a terra estiver seca! 🌱' },
+      afternoon1: { title: '🌱 Cultiva APP: Lembrete das 13:30h', body: 'Como está sua sementinha ou plântula nesta tarde? Aproveite para dar uma olhada nela! 💧' },
+      afternoon2: { title: '💪 Fim da tarde: Cultiva APP', body: 'Não se esqueça do cuidado verde de hoje! Veja se sua planta está bem e segura. 🌿' }
+    };
+    const msg = windowMsgs[windowContext] || windowMsgs.morning;
 
     self.registration.showNotification(msg.title, {
       body: msg.body,

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.turmas (
 CREATE TABLE IF NOT EXISTS public.users (
     email TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    password TEXT,
     points INTEGER NOT NULL DEFAULT 0,
     "turmaId" TEXT REFERENCES public.turmas(id) ON DELETE SET NULL,
     "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE
@@ -69,9 +70,9 @@ CREATE POLICY "Allow public read/write on feedback" ON public.feedback FOR ALL U
 -- Seed Data (Inicia o banco de dados com dados iniciais idênticos ao localStorage padrão)
 
 -- Seed users
-INSERT INTO public.users (email, name, points, "isAdmin") VALUES
-('leo.silva@escola.com', 'Leonardo Silva', 250, FALSE),
-('bia.oliveira@escola.com', 'Beatriz Oliveira', 150, FALSE)
+INSERT INTO public.users (email, name, password, points, "isAdmin") VALUES
+('leo.silva@escola.com', 'Leonardo Silva', '123456', 250, FALSE),
+('bia.oliveira@escola.com', 'Beatriz Oliveira', '123456', 150, FALSE)
 ON CONFLICT (email) DO NOTHING;
 
 -- Seed plants

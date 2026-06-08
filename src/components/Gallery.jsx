@@ -28,6 +28,9 @@ export default function Gallery({ user }) {
   const [updatePhoto, setUpdatePhoto] = useState(PHOTO_PRESETS[1].url);
   const [updateNotes, setUpdateNotes] = useState('');
 
+  // Estado para exibir análise pós-publicação
+  const [publishedAnalysis, setPublishedAnalysis] = useState(null);
+
   // Carregar plantas do DB
   const loadPlants = () => {
     // Alunos comuns vêem apenas suas plantas. Administrador vê tudo.
@@ -48,7 +51,7 @@ export default function Gallery({ user }) {
     e.preventDefault();
     if (!newName || !newSpecies) return;
 
-    addPlant(
+    const newPlant = addPlant(
       user.name,
       user.email,
       newName.trim(),
@@ -56,6 +59,17 @@ export default function Gallery({ user }) {
       newPhoto,
       newNotes.trim() || `Iniciei o cultivo de ${newName}!`
     );
+
+    if (newPlant && newPlant.photos && newPlant.photos.length > 0) {
+      const entry = newPlant.photos[newPlant.photos.length - 1];
+      setPublishedAnalysis({
+        name: newPlant.name,
+        stageName: entry.stageName,
+        analysis: entry.analysis,
+        day: entry.day,
+        url: entry.url
+      });
+    }
 
     // Limpar formulário e recarregar
     setNewName('');
@@ -77,6 +91,17 @@ export default function Gallery({ user }) {
       updateNotes.trim() || `Registro de acompanhamento da planta no Dia ${updateDay}.`
     );
 
+    if (updated && updated.photos && updated.photos.length > 0) {
+      const entry = updated.photos[updated.photos.length - 1];
+      setPublishedAnalysis({
+        name: updated.name,
+        stageName: entry.stageName,
+        analysis: entry.analysis,
+        day: entry.day,
+        url: entry.url
+      });
+    }
+
     // Resetar formulário
     setUpdateNotes('');
     setShowUpdateForm(false);
@@ -88,6 +113,87 @@ export default function Gallery({ user }) {
 
   return (
     <div className="gallery-container">
+      {/* Pop-up de Análise Inteligente Pós-Publicação */}
+      {publishedAnalysis && (
+        <div className="analysis-alert-overlay" style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div className="analysis-alert-card card-nature animate-scale-up" style={{
+            maxWidth: '450px',
+            width: '100%',
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+            border: '2px solid var(--primary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-dark)' }}>
+              <Sparkles size={24} style={{ color: '#fbc02d' }} />
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Análise de Evolução Concluída!</h3>
+            </div>
+            
+            <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-muted)' }}>
+              O Cultiva APP identificou com sucesso o estágio atual de <strong>{publishedAnalysis.name}</strong>.
+            </p>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              backgroundColor: '#f1f8e9',
+              padding: '12px',
+              borderRadius: '12px',
+              border: '1px solid #c5e1a5'
+            }}>
+              <img
+                src={publishedAnalysis.url}
+                alt="Fase identificada"
+                style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover' }}
+              />
+              <div>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--primary-dark)', textTransform: 'uppercase' }}>Fase Identificada</span>
+                <h4 style={{ margin: '2px 0', fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>{publishedAnalysis.stageName}</h4>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dia de cultivo: {publishedAnalysis.day}</span>
+              </div>
+            </div>
+
+            <div className="ai-analysis-box" style={{
+              backgroundColor: '#fffde7',
+              borderLeft: '4px solid #fbc02d',
+              padding: '12px 16px',
+              borderRadius: '4px'
+            }}>
+              <h5 style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 700, color: '#f57f17', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={14} /> Laudo da IA Cultiva:
+              </h5>
+              <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5, color: '#5d4037', fontWeight: 500 }}>
+                {publishedAnalysis.analysis}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              onClick={() => setPublishedAnalysis(null)}
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 700, borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Excelente, entendi! 🌱
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. VISÃO DETALHADA DA PLANTA */}
       {selectedPlant ? (
         <div className="plant-detail animate-slide-up">
@@ -144,16 +250,14 @@ export default function Gallery({ user }) {
             );
           })()}
 
-          {/* Botão de adicionar atualização semanal (apenas se for o dono da planta, adm não atualiza plantas alheias) */}
+          {/* Botão de adicionar atualização semanal */}
           {!user.isAdmin && selectedPlant.studentEmail === user.email && !showUpdateForm && (
             <button 
               className="btn btn-primary btn-block update-trigger-btn"
               onClick={() => {
-                // Sugerir o próximo dia com base na última foto
                 const lastPhoto = selectedPlant.photos[selectedPlant.photos.length - 1];
                 const nextDay = lastPhoto ? lastPhoto.day + 7 : 7;
                 setUpdateDay(nextDay);
-                // Sugerir foto correspondente ao progresso
                 const presetIndex = Math.min(selectedPlant.photos.length, PHOTO_PRESETS.length - 1);
                 setUpdatePhoto(PHOTO_PRESETS[presetIndex].url);
                 setShowUpdateForm(true);
@@ -183,19 +287,65 @@ export default function Gallery({ user }) {
                 </select>
               </div>
 
-              <div className="input-group">
-                <label>Selecione a Foto da Planta</label>
-                <div className="preset-selector">
-                  {PHOTO_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`preset-btn ${updatePhoto === preset.url ? 'active' : ''}`}
-                      onClick={() => setUpdatePhoto(preset.url)}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+              {/* Botão de Câmera para Atualização Semanal */}
+              <div className="input-group" style={{ marginBottom: '16px' }}>
+                <label>Tirar Foto da Planta 📸</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '10px',
+                      backgroundColor: 'var(--bg-app)',
+                      border: '1px dashed var(--primary)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => document.getElementById('camera-update-input').click()}
+                  >
+                    <Camera size={18} /> Câmera / Tirar Foto
+                  </button>
+                  <input
+                    id="camera-update-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setUpdatePhoto(ev.target.result);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  {updatePhoto && (
+                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Pré-visualização da captura:</span>
+                      <img
+                        src={updatePhoto}
+                        alt="Preview evolução"
+                        style={{ maxWidth: '100%', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', border: '2px solid var(--primary)' }}
+                      />
+                    </div>
+                  )}
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Ou escolha um exemplo:</p>
+                  <div className="preset-selector" style={{ marginTop: '4px' }}>
+                    {PHOTO_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`preset-btn ${updatePhoto === preset.url ? 'active' : ''}`}
+                        onClick={() => setUpdatePhoto(preset.url)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -331,19 +481,65 @@ export default function Gallery({ user }) {
                 </select>
               </div>
 
-              <div className="input-group">
-                <label>Foto de Início (Semente ou Vaso)</label>
-                <div className="preset-selector">
-                  {PHOTO_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`preset-btn ${newPhoto === preset.url ? 'active' : ''}`}
-                      onClick={() => setNewPhoto(preset.url)}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+              {/* Botão de Câmera para Registrar Nova Planta */}
+              <div className="input-group" style={{ marginBottom: '16px' }}>
+                <label>Foto da Planta (Semente, Broto ou Vaso) 📸</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '10px',
+                      backgroundColor: 'var(--bg-app)',
+                      border: '1px dashed var(--primary)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => document.getElementById('camera-new-input').click()}
+                  >
+                    <Camera size={18} /> Câmera / Tirar Foto
+                  </button>
+                  <input
+                    id="camera-new-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setNewPhoto(ev.target.result);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  {newPhoto && (
+                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Pré-visualização da captura:</span>
+                      <img
+                        src={newPhoto}
+                        alt="Preview planta"
+                        style={{ maxWidth: '100%', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', border: '2px solid var(--primary)' }}
+                      />
+                    </div>
+                  )}
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Ou escolha um exemplo:</p>
+                  <div className="preset-selector" style={{ marginTop: '4px' }}>
+                    {PHOTO_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`preset-btn ${newPhoto === preset.url ? 'active' : ''}`}
+                        onClick={() => setNewPhoto(preset.url)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

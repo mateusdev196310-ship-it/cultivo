@@ -94,46 +94,55 @@ export default function App() {
     setInstallPrompt(null);
   };
 
-  // Função que verifica e dispara o lembrete diário
+  // Função que verifica e dispara o lembrete nos horários reais: 08:00h, 13:30h e 16:00h
   const checkAndSendDailyReminder = () => {
     const enabled = localStorage.getItem(NOTIF_ENABLED_KEY) === 'true';
     if (!enabled) return;
     if (Notification.permission !== 'granted') return;
 
     const now = new Date();
-    const currentHour = now.getHours();
-    const preferredHour = parseInt(localStorage.getItem(NOTIF_HOUR_KEY) || DEFAULT_HOUR);
-    const lastSentStr = localStorage.getItem(NOTIF_LAST_SENT_KEY);
-    const lastSent = lastSentStr ? parseInt(lastSentStr) : 0;
-    const msSinceLastSent = Date.now() - lastSent;
+    const hrs = now.getHours();
+    const mins = now.getMinutes();
+    const todayDateStr = now.toISOString().split('T')[0];
 
-    // Disparar se: está na hora certa E ainda não enviou hoje (>23h desde o último)
-    const isCorrectHour = currentHour === preferredHour;
-    const sentMoreThan23hAgo = msSinceLastSent > (23 * 60 * 60 * 1000);
+    let currentWindow = null;
 
-    if (isCorrectHour && sentMoreThan23hAgo) {
-      sendDailyReminder();
+    if (hrs === 8 && mins >= 0 && mins < 5) {
+      currentWindow = 'morning';
+    } else if (hrs === 13 && mins >= 30 && mins < 35) {
+      currentWindow = 'afternoon1';
+    } else if (hrs === 16 && mins >= 0 && mins < 5) {
+      currentWindow = 'afternoon2';
+    }
+
+    if (currentWindow) {
+      const windowKey = `${currentWindow}_${todayDateStr}`;
+      const lastSentWindow = localStorage.getItem('cultiva_last_notif_window');
+
+      if (lastSentWindow !== windowKey) {
+        localStorage.setItem('cultiva_last_notif_window', windowKey);
+        sendDailyReminder(currentWindow);
+      }
     }
   };
 
   // Envia o lembrete via SW (se disponível) ou Notification API diretamente
-  const sendDailyReminder = () => {
+  const sendDailyReminder = (windowContext = 'morning') => {
     if (Notification.permission !== 'granted') return;
 
-    // Salvar timestamp do envio
     localStorage.setItem(NOTIF_LAST_SENT_KEY, Date.now().toString());
 
+    const windowMsgs = {
+      morning: { title: '🌿 Bom dia! Hora do sol ☀️', body: 'Comece o dia colocando sua plantinha para tomar sol e regue se a terra estiver seca! 🌱' },
+      afternoon1: { title: '🌱 Cultiva APP: Lembrete das 13:30h', body: 'Como está sua sementinha ou plântula nesta tarde? Aproveite para dar uma olhada nela! 💧' },
+      afternoon2: { title: '💪 Fim da tarde: Cultiva APP', body: 'Não se esqueça do cuidado verde de hoje! Veja se sua planta está bem e segura. 🌿' }
+    };
+
+    const msg = windowMsgs[windowContext] || windowMsgs.morning;
+
     if (swRef.current && swRef.current.active) {
-      // Enviar via Service Worker (funciona mesmo com app em background)
-      swRef.current.active.postMessage({ type: 'DAILY_REMINDER' });
+      swRef.current.active.postMessage({ type: 'DAILY_REMINDER', window: windowContext });
     } else {
-      // Fallback: notificação direta
-      const msgs = [
-        { title: '🌿 Hora de cuidar da sua planta!', body: 'Regue sua plantinha e deixe-a tomar sol hoje! ☀️💧' },
-        { title: '🌱 Cultiva APP te lembra!', body: 'Sua planta está com saudades! Veja como ela cresceu hoje. 🌱' },
-        { title: '☀️ Dia de cuidar do verde!', body: 'Rega diária + sol direto = planta forte e saudável! 💪' },
-      ];
-      const msg = msgs[Math.floor(Math.random() * msgs.length)];
       new Notification(msg.title, {
         body: msg.body,
         icon: '/favicon.svg',
@@ -146,9 +155,7 @@ export default function App() {
   // Ativar o intervalo de verificação diária quando notificações estiverem ativas
   useEffect(() => {
     if (notifEnabled) {
-      // Verificar imediatamente ao ativar
       checkAndSendDailyReminder();
-      // Depois verifica a cada minuto
       intervalRef.current = setInterval(checkAndSendDailyReminder, CHECK_INTERVAL);
     } else {
       if (intervalRef.current) {
@@ -165,7 +172,6 @@ export default function App() {
   // Toggle de ativar/desativar notificações
   const handleToggleNotifications = async () => {
     if (notifEnabled) {
-      // Desativar
       localStorage.setItem(NOTIF_ENABLED_KEY, 'false');
       setNotifEnabled(false);
       setNotifStatus('🔕 Lembretes desativados.');
@@ -173,7 +179,6 @@ export default function App() {
       return;
     }
 
-    // Ativar — verificar permissão
     if (!('Notification' in window)) {
       setNotifStatus('❌ Seu navegador não suporta notificações.');
       setTimeout(() => setNotifStatus(''), 4000);
@@ -195,14 +200,12 @@ export default function App() {
       localStorage.setItem(NOTIF_ENABLED_KEY, 'true');
       setNotifEnabled(true);
 
-      // Enviar confirmação imediata
-      const preferredHour = parseInt(localStorage.getItem(NOTIF_HOUR_KEY) || DEFAULT_HOUR);
       new Notification('🌿 Lembretes Ativados!', {
-        body: `Você receberá lembretes diários às ${preferredHour}h para cuidar da sua planta. 🌱`,
+        body: `Você receberá avisos diários nos horários de cultivo: 08:00 AM, 13:30 PM e 16:00 PM. 🌱`,
         icon: '/favicon.svg',
         tag: 'cultiva-activation',
       });
-      setNotifStatus(`✅ Lembretes ativados! Aviso diário às ${preferredHour}h.`);
+      setNotifStatus(`✅ Lembretes ativos (08:00, 13:30 e 16:00).`);
       setTimeout(() => setNotifStatus(''), 4000);
     } else {
       setNotifStatus('❌ Permissão negada. Ative nas configurações do navegador.');
@@ -216,7 +219,7 @@ export default function App() {
       handleToggleNotifications();
       return;
     }
-    sendDailyReminder();
+    sendDailyReminder('morning');
     setNotifStatus('📨 Lembrete enviado agora!');
     setTimeout(() => setNotifStatus(''), 3000);
   };
@@ -316,7 +319,7 @@ export default function App() {
               <button
                 className={`btn-bell-toggle ${notifEnabled ? 'active' : ''}`}
                 onClick={handleToggleNotifications}
-                title={notifEnabled ? `Notificações ativas (${preferredHour}h) — Clique para desativar` : 'Ativar lembretes diários'}
+                title={notifEnabled ? 'Lembretes ativos (08h, 13:30h e 16h) — Clique para desativar' : 'Ativar lembretes diários'}
               >
                 {notifEnabled ? <Bell size={16} /> : <BellOff size={16} />}
               </button>

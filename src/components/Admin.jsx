@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, Users, Sprout, BarChart3, MessageSquare, Heart, RefreshCw, Plus, Trash2, Camera, X } from 'lucide-react';
-import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto } from '../db';
+import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma } from '../db';
 
 const TABS = [
   { id: 'dashboard', label: '📊 Painel', icon: BarChart3 },
@@ -47,6 +47,8 @@ export default function Admin() {
   const [selectedTurmaFoto, setSelectedTurmaFoto] = useState({}); // { [turmaId]: fotoDataUrl }
   const fileInputRef = useRef(null);
   const turmaFotoRefs = useRef({});
+  const [groupingTurmaId, setGroupingTurmaId] = useState(null);
+  const [selectedStudentEmails, setSelectedStudentEmails] = useState([]);
 
   const loadAdminData = () => {
     const allPlants = getPlants();
@@ -390,7 +392,30 @@ export default function Admin() {
                         {alunos.length} aluno{alunos.length !== 1 ? 's' : ''} • Criada em {turma.criadaEm}
                       </span>
                     </div>
-                    <div className="turma-actions">
+                    <div className="turma-actions" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <button
+                        className="btn-turma-foto"
+                        title="Agrupar Alunos"
+                        onClick={() => {
+                          setGroupingTurmaId(turma.id);
+                          setSelectedStudentEmails(alunos.map(a => a.email));
+                        }}
+                        style={{
+                          backgroundColor: '#e8f5e9',
+                          color: '#2e7d32',
+                          border: '1px solid #a5d6a7',
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                      >
+                        👥 Agrupar
+                      </button>
                       <button
                         className="btn-turma-foto"
                         title="Trocar foto da turma"
@@ -415,6 +440,106 @@ export default function Admin() {
                       />
                     </div>
                   </div>
+
+                  {/* Painel de Agrupamento */}
+                  {groupingTurmaId === turma.id && (
+                    <div className="turma-grouping-panel animate-fade-in" style={{
+                      marginTop: '8px',
+                      marginBottom: '16px',
+                      padding: '12px',
+                      backgroundColor: '#f9fbe7',
+                      borderRadius: '8px',
+                      border: '1.5px solid #d4e157',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#558b2f' }}>
+                        👥 Associar Alunos a esta Turma ({turma.nome})
+                      </h5>
+                      
+                      <div className="student-selection-list" style={{
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        border: '1px solid #d4e157',
+                        borderRadius: '6px',
+                        backgroundColor: '#ffffff',
+                        padding: '4px'
+                      }}>
+                        {users.filter(u => !u.isAdmin).length === 0 ? (
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '8px', textAlign: 'center' }}>
+                            Nenhum aluno cadastrado no aplicativo ainda.
+                          </p>
+                        ) : (
+                          users.filter(u => !u.isAdmin).map(student => {
+                            const studentTurma = turmas.find(t => t.id === student.turmaId);
+                            const isChecked = selectedStudentEmails.includes(student.email);
+                            
+                            return (
+                              <label key={student.email} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '6px 8px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                borderBottom: '1px solid #f1f8e9'
+                              }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedStudentEmails(prev => [...prev, student.email]);
+                                    } else {
+                                      setSelectedStudentEmails(prev => prev.filter(email => email !== student.email));
+                                    }
+                                  }}
+                                />
+                                <div style={{ flex: 1 }}>
+                                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{student.name}</span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '6px' }}>({student.email})</span>
+                                </div>
+                                {student.turmaId && student.turmaId !== turma.id && (
+                                  <span style={{ fontSize: '9px', backgroundColor: '#efebe9', color: '#5d4037', padding: '2px 6px', borderRadius: '10px' }}>
+                                    já em: {studentTurma?.nome}
+                                  </span>
+                                )}
+                                {!student.turmaId && (
+                                  <span style={{ fontSize: '9px', backgroundColor: '#fff8e1', color: '#ff8f00', padding: '2px 6px', borderRadius: '10px' }}>
+                                    Sem Turma
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', border: '1px solid var(--border-color)' }}
+                          onClick={() => setGroupingTurmaId(null)}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', backgroundColor: '#558b2f' }}
+                          onClick={async () => {
+                            await updateUsersTurma(turma.id, selectedStudentEmails);
+                            setGroupingTurmaId(null);
+                            loadAdminData();
+                          }}
+                        >
+                          Salvar Alterações
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Alunos desta turma */}
                   {alunos.length === 0 ? (

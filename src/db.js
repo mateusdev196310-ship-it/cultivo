@@ -207,43 +207,189 @@ export function saveUsers(users) {
   localStorage.setItem('cultiva_users', JSON.stringify(users));
 }
 
-// Registrar ou buscar aluno no login (com turmaId)
-export function registerOrGetUser(name, email, isAdmin, turmaId) {
+// E-mails administrativos padrão
+const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
+
+// Realizar Login
+export async function loginUser(email, password) {
   initDb();
   const cleanEmail = email.trim().toLowerCase();
   
-  if (isAdmin) {
-    return { name, email: cleanEmail, isAdmin: true, points: 0 };
+  // 1. Verificar se é ADM
+  if (ADMIN_EMAILS.includes(cleanEmail)) {
+    if (password === '130122') {
+      return { name: 'Ester Ferreira (ADM)', email: cleanEmail, isAdmin: true, points: 0 };
+    } else {
+      throw new Error('Senha incorreta do administrador.');
+    }
   }
 
-  const users = getUsers();
-  let userIndex = users.findIndex(u => u.email === cleanEmail);
-  
-  if (userIndex === -1) {
-    const newUser = { email: cleanEmail, name: name.trim(), points: 0, turmaId: turmaId || null };
-    users.push(newUser);
-    saveUsers(users);
+  // 2. Verificar no Supabase se estiver conectado
+  if (supabase) {
+    try {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
 
-    if (supabase) {
-      supabase.from('users').insert([newUser]).then(({ error }) => {
-        if (error) console.error('[Supabase Error] registerOrGetUser (insert):', error);
-      });
-    }
+      if (error) {
+        console.warn('[Supabase Login] Erro ao buscar usuário:', error);
+      } else if (user) {
+        // Se o usuário já existe mas não tem senha cadastrada (migração), define a digitada
+        if (!user.password) {
+          user.password = password;
+          // Atualiza no Supabase
+          await supabase.from('users').update({ password }).eq('email', cleanEmail);
+          
+          // Atualiza localmente
+          const users = getUsers();
+          const localIdx = users.findIndex(u => u.email === cleanEmail);
+          if (localIdx === -1) {
+            users.push(user);
+          } else {
+            users[localIdx] = user;
+          }
+          saveUsers(users);
+          return { ...user, isAdmin: false };
+        }
 
-    return { ...newUser, isAdmin: false };
-  } else {
-    // Atualiza turmaId se fornecido
-    if (turmaId) {
-      users[userIndex].turmaId = turmaId;
-      saveUsers(users);
-
-      if (supabase) {
-        supabase.from('users').update({ turmaId }).eq('email', cleanEmail).then(({ error }) => {
-          if (error) console.error('[Supabase Error] registerOrGetUser (update):', error);
-        });
+        if (user.password === password) {
+          // Atualiza dados locais
+          const users = getUsers();
+          const localIdx = users.findIndex(u => u.email === cleanEmail);
+          if (localIdx === -1) {
+            users.push(user);
+          } else {
+            users[localIdx] = user;
+          }
+          saveUsers(users);
+          return { ...user, isAdmin: false };
+        } else {
+          throw new Error('Senha incorreta.');
+        }
+      } else {
+        throw new Error('Usuário não encontrado. Por favor, cadastre-se.');
+      }
+    } catch (err) {
+      console.warn('[Supabase Login] Falha ou tentativa local:', err.message);
+      if (err.message && (err.message.includes('Senha') || err.message.includes('encontrado'))) {
+        throw err;
       }
     }
-    return { ...users[userIndex], isAdmin: false };
+  }
+
+  // 3. Fallback ou busca local
+  const users = getUsers();
+  const user = users.find(u => u.email === cleanEmail);
+
+  if (!user) {
+    throw new Error('Usuário não encontrado. Por favor, cadastre-se.');
+  }
+
+  // Se o usuário local não tem senha cadastrada (migração), define a digitada
+  if (!user.password) {
+    user.password = password;
+    saveUsers(users);
+    return { ...user, isAdmin: false };
+  }
+
+  if (user.password === password) {
+    return { ...user, isAdmin: false };
+  } else {
+    throw new Error('Senha incorreta.');
+  }
+}
+
+// Registrar novo Aluno
+export async function registerStudent(name, email, password, turmaId) {
+  initDb();
+  const cleanEmail = email.trim().toLowerCase();
+  
+  if (ADMIN_EMAILS.includes(cleanEmail)) {
+    throw new Error('Este e-mail é reservado para administração.');
+  }
+
+  // Verificar se usuário já existe localmente ou no Supabase
+  const localUsers = getUsers();
+  const existsLocal = localUsers.some(u => u.email === cleanEmail);
+  if (existsLocal) {
+    throw new Error('E-mail já cadastrado.');
+  }
+
+  if (supabase) {
+    const { data: existing, error } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[Supabase Register] Erro de verificação:', error);
+    } else if (existing) {
+      throw new Error('E-mail já cadastrado no servidor.');
+    }
+  }
+
+  const newUser = {
+    email: cleanEmail,
+    name: name.trim(),
+    password: password,
+    points: 0,
+    turmaId: turmaId || null,
+    isAdmin: false
+  };
+
+  // Salvar local
+  localUsers.push(newUser);
+  saveUsers(localUsers);
+
+  // Salvar no Supabase
+  if (supabase) {
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([newUser]);
+    
+    if (insertError) {
+      console.error('[Supabase Error] registerStudent:', insertError);
+    }
+  }
+
+  return newUser;
+}
+
+// Associar alunos a uma turma (ADM)
+export async function updateUsersTurma(turmaId, studentEmails) {
+  const users = getUsers();
+  
+  // Atualizar localmente
+  const updatedUsers = users.map(u => {
+    if (studentEmails.includes(u.email)) {
+      return { ...u, turmaId: turmaId };
+    } else if (u.turmaId === turmaId) {
+      // Se estava nesta turma mas foi removido
+      return { ...u, turmaId: null };
+    }
+    return u;
+  });
+  saveUsers(updatedUsers);
+
+  // Atualizar no Supabase
+  if (supabase) {
+    try {
+      // Remover turma dos que não pertencem mais
+      const emailsToRemove = users.filter(u => u.turmaId === turmaId && !studentEmails.includes(u.email)).map(u => u.email);
+      if (emailsToRemove.length > 0) {
+        await supabase.from('users').update({ turmaId: null }).in('email', emailsToRemove);
+      }
+      
+      // Adicionar turma aos novos
+      if (studentEmails.length > 0) {
+        await supabase.from('users').update({ turmaId: turmaId }).in('email', studentEmails);
+      }
+    } catch (err) {
+      console.error('[Supabase Error] updateUsersTurma:', err);
+    }
   }
 }
 

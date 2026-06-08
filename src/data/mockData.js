@@ -235,11 +235,13 @@ export const initialUsers = [
   {
     email: "leo.silva@escola.com",
     name: "Leonardo Silva",
+    password: "123456",
     points: 250
   },
   {
     email: "bia.oliveira@escola.com",
     name: "Beatriz Oliveira",
+    password: "123456",
     points: 150
   }
 ];

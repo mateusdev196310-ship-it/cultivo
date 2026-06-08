@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Send, Trash2, ShieldAlert } from 'lucide-react';
-import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment } from '../db';
+import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers } from '../db';
 
 export default function Feed({ user }) {
   const [posts, setPosts] = useState([]);
   const [commentInputs, setCommentInputs] = useState({}); // { [postId]: '' }
 
   const loadPosts = () => {
-    setPosts(getPosts());
+    const allPosts = getPosts();
+    if (user.isAdmin) {
+      setPosts(allPosts);
+    } else {
+      const allUsers = getUsers();
+      const authorTurmaMap = {};
+      allUsers.forEach(u => {
+        authorTurmaMap[u.email] = u.turmaId;
+      });
+
+      if (user.turmaId) {
+        // Aluno agrupado vê apenas posts de alunos da mesma turma
+        setPosts(allPosts.filter(post => authorTurmaMap[post.studentEmail] === user.turmaId));
+      } else {
+        // Aluno não agrupado vê todos os posts
+        setPosts(allPosts);
+      }
+    }
   };
 
   useEffect(() => {
     loadPosts();
-  }, []);
+  }, [user]);
 
   const handleLike = (postId) => {
     toggleLikePost(postId, user.email);
