@@ -34,6 +34,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Rota de configuração dinâmica em tempo de execução
+  if (req.url === '/config.js') {
+    const config = {
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "",
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || ""
+    };
+    res.writeHead(200, {
+      'Content-Type': 'application/javascript',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+    });
+    res.end(`window.CULTIVA_CONFIG = ${JSON.stringify(config)};`);
+    return;
+  }
+
   // Decodificar URL para lidar com espaços e acentos
   let filePath = path.join(distPath, decodeURIComponent(req.url));
   

@@ -12,6 +12,7 @@ export default function Auth({ onLogin }) {
   const [turmaId, setTurmaId] = useState('');
   const [turmas, setTurmas] = useState([]);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const isAdminEmail = ADMIN_EMAILS.includes(email.trim().toLowerCase());
 
@@ -35,6 +36,8 @@ export default function Auth({ onLogin }) {
     const cleanEmail = email.trim().toLowerCase();
     const isAdmin = ADMIN_EMAILS.includes(cleanEmail);
 
+    setIsLoading(true);
+
     try {
       if (mode === 'login') {
         const loggedUser = await loginUser(cleanEmail, password);
@@ -43,10 +46,12 @@ export default function Auth({ onLogin }) {
         // Cadastro (apenas alunos)
         if (isAdmin) {
           setError('Contas de administrador já existem. Por favor, faça login.');
+          setIsLoading(false);
           return;
         }
         if (!name) {
           setError('Alunos precisam preencher o nome completo.');
+          setIsLoading(false);
           return;
         }
         const loggedUser = await registerStudent(name.trim(), cleanEmail, password, null);
@@ -54,6 +59,7 @@ export default function Auth({ onLogin }) {
       }
     } catch (err) {
       setError(err.message || 'Ocorreu um erro.');
+      setIsLoading(false);
     }
   };
 
@@ -198,8 +204,17 @@ export default function Auth({ onLogin }) {
             border: '1px solid #ffcdd2'
           }}>{error}</div>}
 
-          <button type="submit" className="btn btn-primary btn-block">
-            {mode === 'login' ? 'Entrar no Cultiva' : 'Criar Conta'} <Leaf size={16} style={{ marginLeft: 8 }} />
+          <button type="submit" className="btn btn-primary btn-block" disabled={isLoading}>
+            {isLoading ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <span className="spinner-mini"></span>
+                {mode === 'login' ? 'Entrando...' : 'Cadastrando...'}
+              </span>
+            ) : (
+              <>
+                {mode === 'login' ? 'Entrar no Cultiva' : 'Criar Conta'} <Leaf size={16} style={{ marginLeft: 8 }} />
+              </>
+            )}
           </button>
         </form>
 
