@@ -24,6 +24,16 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
+  // Rota rápida de ping para manter o servidor ativo e para monitoramento
+  if (req.url === '/ping' || req.url === '/healthz') {
+    res.writeHead(200, {
+      'Content-Type': 'text/plain',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+    });
+    res.end('pong');
+    return;
+  }
+
   // Decodificar URL para lidar com espaços e acentos
   let filePath = path.join(distPath, decodeURIComponent(req.url));
   
@@ -54,16 +64,31 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`[Server] rodando na porta ${PORT}`);
 
+  const externalUrl = RENDER_EXTERNAL_URL || process.env.APP_URL;
+
   // Auto-ping a cada 5 minutos
-  if (RENDER_EXTERNAL_URL) {
-    console.log(`[Server] Configurando auto-ping para: ${RENDER_EXTERNAL_URL}`);
-    // Usando a API Fetch global do Node 18+
-    setInterval(() => {
-      fetch(RENDER_EXTERNAL_URL)
-        .then(() => console.log('[Server] Auto-ping enviado com sucesso.'))
-        .catch(err => console.warn('[Server] Erro no auto-ping:', err));
-    }, 5 * 60 * 1000);
+  if (externalUrl) {
+    const targetPingUrl = `${externalUrl.replace(/\/$/, '')}/ping`;
+    console.log(`[Server] Configurando auto-ping para: ${targetPingUrl}`);
+    
+    const doPing = () => {
+      fetch(targetPingUrl)
+        .then(res => {
+          if (res.ok) {
+            console.log(`[Server] Auto-ping enviado com sucesso para ${targetPingUrl}`);
+          } else {
+            console.warn(`[Server] Auto-ping respondeu com status: ${res.status}`);
+          }
+        })
+        .catch(err => console.warn('[Server] Erro no auto-ping:', err.message));
+    };
+
+    // Executa um ping inicial após 10 segundos para testar e manter acordado desde o boot
+    setTimeout(doPing, 10000);
+
+    // Repete a cada 5 minutos
+    setInterval(doPing, 5 * 60 * 1000);
   } else {
-    console.log('[Server] RENDER_EXTERNAL_URL não encontrada. Auto-ping desativado.');
+    console.log('[Server] RENDER_EXTERNAL_URL/APP_URL não encontrada. Auto-ping desativado.');
   }
 });

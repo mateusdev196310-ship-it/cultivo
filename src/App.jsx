@@ -75,7 +75,7 @@ export default function App() {
   // Evitar que o Render entre em suspensão enquanto o usuário estiver ativo na página
   useEffect(() => {
     const keepAlive = () => {
-      fetch(window.location.href, { mode: 'no-cors' })
+      fetch('/ping')
         .then(() => console.log('[Cultiva] Keep-alive ping enviado com sucesso.'))
         .catch(err => console.warn('[Cultiva] Erro no ping keep-alive:', err));
     };
