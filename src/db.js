@@ -39,6 +39,93 @@ export function analyzePlantStage(species, day) {
   }
 }
 
+// Função auxiliar para sincronizar dados criados/atualizados offline para o Supabase
+export async function syncLocalToSupabase() {
+  if (!supabase) return;
+  console.log('[Cultiva Sync] Verificando dados offline para sincronizar com Supabase...');
+
+  try {
+    // 1. Sincronizar usuários criados/atualizados offline
+    const localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+    const { data: serverUsers, error: errUsers } = await supabase.from('users').select('*');
+    if (!errUsers && serverUsers) {
+      for (const localUser of localUsers) {
+        const serverUser = serverUsers.find(u => u.email === localUser.email);
+        if (!serverUser) {
+          console.log(`[Cultiva Sync] Cadastrando usuário offline no Supabase: ${localUser.email}`);
+          await supabase.from('users').insert([localUser]);
+        } else if (localUser.points > serverUser.points || localUser.password !== serverUser.password) {
+          console.log(`[Cultiva Sync] Atualizando pontuação/senha offline no Supabase: ${localUser.email}`);
+          await supabase.from('users').update({
+            points: localUser.points,
+            password: localUser.password,
+            turmaId: localUser.turmaId
+          }).eq('email', localUser.email);
+        }
+      }
+    }
+
+    // 2. Sincronizar turmas criadas offline
+    const localTurmas = JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
+    const { data: serverTurmas, error: errTurmas } = await supabase.from('turmas').select('*');
+    if (!errTurmas && serverTurmas) {
+      for (const localTurma of localTurmas) {
+        const exists = serverTurmas.some(t => t.id === localTurma.id);
+        if (!exists) {
+          console.log(`[Cultiva Sync] Enviando turma offline para o Supabase: ${localTurma.nome}`);
+          await supabase.from('turmas').insert([localTurma]);
+        }
+      }
+    }
+
+    // 3. Sincronizar plantas e seu histórico de fotos
+    const localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+    const { data: serverPlants, error: errPlants } = await supabase.from('plants').select('*');
+    if (!errPlants && serverPlants) {
+      for (const localPlant of localPlants) {
+        const serverPlant = serverPlants.find(p => p.id === localPlant.id);
+        if (!serverPlant) {
+          console.log(`[Cultiva Sync] Enviando nova planta offline para o Supabase: ${localPlant.name}`);
+          await supabase.from('plants').insert([localPlant]);
+        } else if ((localPlant.photos || []).length > (serverPlant.photos || []).length) {
+          console.log(`[Cultiva Sync] Atualizando fotos offline da planta: ${localPlant.name}`);
+          await supabase.from('plants').update({ photos: localPlant.photos }).eq('id', localPlant.id);
+        }
+      }
+    }
+
+    // 4. Sincronizar posts do feed
+    const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+    const { data: serverPosts, error: errPosts } = await supabase.from('posts').select('*');
+    if (!errPosts && serverPosts) {
+      for (const localPost of localPosts) {
+        const exists = serverPosts.some(p => p.id === localPost.id);
+        if (!exists) {
+          console.log(`[Cultiva Sync] Enviando post do feed offline para o Supabase: ${localPost.id}`);
+          await supabase.from('posts').insert([localPost]);
+        }
+      }
+    }
+
+    // 5. Sincronizar feedbacks de aula
+    const localFeedback = JSON.parse(localStorage.getItem('cultiva_feedback') || '[]');
+    const { data: serverFeedback, error: errFeedback } = await supabase.from('feedback').select('*');
+    if (!errFeedback && serverFeedback) {
+      for (const localFb of localFeedback) {
+        const exists = serverFeedback.some(f => f.email === localFb.email);
+        if (!exists) {
+          console.log(`[Cultiva Sync] Enviando feedback offline para o Supabase: ${localFb.email}`);
+          await supabase.from('feedback').insert([localFb]);
+        }
+      }
+    }
+
+    console.log('[Cultiva Sync] Sincronização offline-para-online concluída com sucesso!');
+  } catch (err) {
+    console.warn('[Cultiva Sync] Falha durante a sincronização automática:', err);
+  }
+}
+
 // Inicializar banco de dados no LocalStorage se não existir
 export async function initDb(forceSync = false) {
   // Migração: Se houver fotos antigas de chocolate no cache do navegador do usuário, limpa para forçar o recarregamento
@@ -68,6 +155,9 @@ export async function initDb(forceSync = false) {
 
   // Sincronização com o Supabase (se disponível e forçada no início do app)
   if (supabase && forceSync) {
+    // Primeiro envia quaisquer alterações pendentes que foram salvas offline
+    await syncLocalToSupabase();
+
     try {
       const [
         { data: turmas, error: errorTurmas },
