@@ -128,13 +128,15 @@ export async function syncLocalToSupabase() {
 
 // Inicializar banco de dados no LocalStorage se não existir
 export async function initDb(forceSync = false) {
-  // Migração: Se houver fotos antigas de chocolate no cache do navegador do usuário, limpa para forçar o recarregamento
-  const cachedPlants = localStorage.getItem('cultiva_plants');
-  if (cachedPlants && cachedPlants.includes('photo-1599599810769-bcde5a160d32')) {
+  // Limpeza forçada única dos caches e usuários antigos locais para migração limpa para o Supabase
+  if (localStorage.getItem('cultiva_cache_version') !== 'v2') {
     localStorage.removeItem('cultiva_plants');
     localStorage.removeItem('cultiva_posts');
     localStorage.removeItem('cultiva_users');
-    localStorage.removeItem('cultiva_user'); // força novo login para recarregar tudo limpo
+    localStorage.removeItem('cultiva_user');
+    localStorage.removeItem('cultiva_feedback');
+    localStorage.removeItem('cultiva_turmas');
+    localStorage.setItem('cultiva_cache_version', 'v2');
   }
 
   if (!localStorage.getItem('cultiva_plants')) {
