@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
-import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers, formatDateBR } from '../db';
+import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers, formatDateBR, normalizeDbObject } from '../db';
 import { supabase } from '../supabaseClient';
 
 export default function Feed({ user }) {
@@ -29,13 +29,15 @@ export default function Feed({ user }) {
           supabase.from('users').select('*')
         ]);
         if (freshPosts) {
+          const normalizedPosts = normalizeDbObject(freshPosts);
           const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-          const unsyncedPosts = localPosts.filter(lp => !freshPosts.some(sp => sp.id === lp.id));
-          const sortedPosts = [...freshPosts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
+          const unsyncedPosts = localPosts.filter(lp => !normalizedPosts.some(sp => sp.id === lp.id));
+          const sortedPosts = [...normalizedPosts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
           localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
         }
         if (freshUsers) {
-          localStorage.setItem('cultiva_users', JSON.stringify(freshUsers));
+          const normalizedUsers = normalizeDbObject(freshUsers);
+          localStorage.setItem('cultiva_users', JSON.stringify(normalizedUsers));
         }
       } catch (err) {
         console.warn('[Feed Sync] Erro ao buscar atualizações do Supabase:', err);

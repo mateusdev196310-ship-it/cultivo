@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sprout, User, Shield, Bell, BellOff } from 'lucide-react';
-import { initDb, checkInactivityPenalties } from './db';
+import { initDb, checkInactivityPenalties, normalizeDbObject } from './db';
+import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import Navbar from './components/Navbar';
 import Learn from './components/Learn';
@@ -99,9 +100,10 @@ export default function App() {
           .maybeSingle();
         
         if (latestProfile) {
-          const hasChanged = latestProfile.turmaId !== user.turmaId || latestProfile.points !== user.points;
+          const normalizedProfile = normalizeDbObject(latestProfile);
+          const hasChanged = normalizedProfile.turmaId !== user.turmaId || normalizedProfile.points !== user.points;
           if (hasChanged) {
-            const updated = { ...user, ...latestProfile };
+            const updated = { ...user, ...normalizedProfile };
             setUser(updated);
             localStorage.setItem('cultiva_user', JSON.stringify(updated));
             console.log('[App Sync] Perfil do usuário atualizado a partir do banco:', updated);

@@ -19,6 +19,57 @@ export function formatDateBR(dateStr) {
   return dateStr;
 }
 
+export function normalizeDbObject(obj) {
+  if (!obj) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(normalizeDbObject);
+  }
+  if (typeof obj !== 'object') return obj;
+
+  const normalized = { ...obj };
+
+  // Key mappings for database columns (lowercase to camelCase)
+  const keyMap = {
+    fotourl: 'fotoUrl',
+    criadaem: 'criadaEm',
+    turmaid: 'turmaId',
+    isadmin: 'isAdmin',
+    studentname: 'studentName',
+    studentemail: 'studentEmail',
+    startdate: 'startDate',
+    lastpenaltydate: 'lastPenaltyDate',
+    plantid: 'plantId',
+    plantname: 'plantName',
+    stagename: 'stageName'
+  };
+
+  for (const [lowerKey, camelKey] of Object.entries(keyMap)) {
+    if (lowerKey in normalized) {
+      normalized[camelKey] = normalized[lowerKey];
+    }
+  }
+
+  // Also normalize comments array in posts if it exists
+  if (Array.isArray(normalized.comments)) {
+    normalized.comments = normalized.comments.map(c => {
+      if (c && typeof c === 'object') {
+        const normalizedComment = { ...c };
+        if ('studentemail' in normalizedComment) {
+          normalizedComment.studentEmail = normalizedComment.studentemail;
+        }
+        if ('studentname' in normalizedComment) {
+          normalizedComment.studentName = normalizedComment.studentname;
+        }
+        return normalizedComment;
+      }
+      return c;
+    });
+  }
+
+  return normalized;
+}
+
+
 // Função para simular a análise de estágio por IA com base na espécie da planta e no dia de cultivo
 export function analyzePlantStage(species, day) {
   const cleanSpecies = species.trim() || "Planta";
@@ -67,8 +118,9 @@ export async function syncLocalToSupabase() {
     const localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
     const { data: serverUsers, error: errUsers } = await supabase.from('users').select('*');
     if (!errUsers && serverUsers) {
+      const normalizedServerUsers = normalizeDbObject(serverUsers);
       for (const localUser of localUsers) {
-        const serverUser = serverUsers.find(u => u.email === localUser.email);
+        const serverUser = normalizedServerUsers.find(u => u.email === localUser.email);
         if (!serverUser) {
           console.log(`[Cultiva Sync] Cadastrando usuário offline no Supabase: ${localUser.email}`);
           await supabase.from('users').insert([localUser]);
@@ -91,8 +143,9 @@ export async function syncLocalToSupabase() {
     const localTurmas = JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
     const { data: serverTurmas, error: errTurmas } = await supabase.from('turmas').select('*');
     if (!errTurmas && serverTurmas) {
+      const normalizedServerTurmas = normalizeDbObject(serverTurmas);
       for (const localTurma of localTurmas) {
-        const exists = serverTurmas.some(t => t.id === localTurma.id);
+        const exists = normalizedServerTurmas.some(t => t.id === localTurma.id);
         if (!exists) {
           console.log(`[Cultiva Sync] Enviando turma offline para o Supabase: ${localTurma.nome}`);
           await supabase.from('turmas').insert([localTurma]);
@@ -104,8 +157,9 @@ export async function syncLocalToSupabase() {
     const localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
     const { data: serverPlants, error: errPlants } = await supabase.from('plants').select('*');
     if (!errPlants && serverPlants) {
+      const normalizedServerPlants = normalizeDbObject(serverPlants);
       for (const localPlant of localPlants) {
-        const serverPlant = serverPlants.find(p => p.id === localPlant.id);
+        const serverPlant = normalizedServerPlants.find(p => p.id === localPlant.id);
         if (!serverPlant) {
           console.log(`[Cultiva Sync] Enviando nova planta offline para o Supabase: ${localPlant.name}`);
           await supabase.from('plants').insert([localPlant]);
@@ -120,8 +174,9 @@ export async function syncLocalToSupabase() {
     const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
     const { data: serverPosts, error: errPosts } = await supabase.from('posts').select('*');
     if (!errPosts && serverPosts) {
+      const normalizedServerPosts = normalizeDbObject(serverPosts);
       for (const localPost of localPosts) {
-        const exists = serverPosts.some(p => p.id === localPost.id);
+        const exists = normalizedServerPosts.some(p => p.id === localPost.id);
         if (!exists) {
           console.log(`[Cultiva Sync] Enviando post do feed offline para o Supabase: ${localPost.id}`);
           await supabase.from('posts').insert([localPost]);
@@ -133,8 +188,9 @@ export async function syncLocalToSupabase() {
     const localFeedback = JSON.parse(localStorage.getItem('cultiva_feedback') || '[]');
     const { data: serverFeedback, error: errFeedback } = await supabase.from('feedback').select('*');
     if (!errFeedback && serverFeedback) {
+      const normalizedServerFeedback = normalizeDbObject(serverFeedback);
       for (const localFb of localFeedback) {
-        const exists = serverFeedback.some(f => f.email === localFb.email);
+        const exists = normalizedServerFeedback.some(f => f.email === localFb.email);
         if (!exists) {
           console.log(`[Cultiva Sync] Enviando feedback offline para o Supabase: ${localFb.email}`);
           const emojiMap = { '😍': 4, '🙂': 3, '😐': 2, '😢': 1 };
@@ -201,30 +257,33 @@ export async function initDb(forceSync = false) {
       ]);
 
       if (errorTurmas) console.warn('[Supabase Sync] Erro ao buscar turmas:', errorTurmas);
-      else if (turmas) localStorage.setItem('cultiva_turmas', JSON.stringify(turmas));
+      else if (turmas) localStorage.setItem('cultiva_turmas', JSON.stringify(normalizeDbObject(turmas)));
 
       if (errorUsers) console.warn('[Supabase Sync] Erro ao buscar usuários:', errorUsers);
-      else if (users) localStorage.setItem('cultiva_users', JSON.stringify(users));
+      else if (users) localStorage.setItem('cultiva_users', JSON.stringify(normalizeDbObject(users)));
 
       if (errorPlants) console.warn('[Supabase Sync] Erro ao buscar plantas:', errorPlants);
       else if (plants) {
+        const normalizedPlants = normalizeDbObject(plants);
         const localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
-        const unsyncedPlants = localPlants.filter(lp => !plants.some(sp => sp.id === lp.id));
-        localStorage.setItem('cultiva_plants', JSON.stringify([...plants, ...unsyncedPlants]));
+        const unsyncedPlants = localPlants.filter(lp => !normalizedPlants.some(sp => sp.id === lp.id));
+        localStorage.setItem('cultiva_plants', JSON.stringify([...normalizedPlants, ...unsyncedPlants]));
       }
 
       if (errorPosts) console.warn('[Supabase Sync] Erro ao buscar posts:', errorPosts);
       else if (posts) {
+        const normalizedPosts = normalizeDbObject(posts);
         const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-        const unsyncedPosts = localPosts.filter(lp => !posts.some(sp => sp.id === lp.id));
-        const sortedPosts = [...posts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
+        const unsyncedPosts = localPosts.filter(lp => !normalizedPosts.some(sp => sp.id === lp.id));
+        const sortedPosts = [...normalizedPosts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
         localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
       }
 
       if (errorFeedback) console.warn('[Supabase Sync] Erro ao buscar feedback:', errorFeedback);
       else if (feedback) {
         const intMap = { 4: '😍', 3: '🙂', 2: '😐', 1: '😢' };
-        const mappedFeedback = feedback.map(f => {
+        const normalizedFeedback = normalizeDbObject(feedback);
+        const mappedFeedback = normalizedFeedback.map(f => {
           const emojiVote = intMap[f.vote] || f.vote;
           return { ...f, vote: emojiVote };
         });
@@ -321,7 +380,7 @@ export function updateTurmaFoto(turmaId, fotoUrl) {
 export function getPlants() {
   initDb();
   const plants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
-  return plants.map(plant => ({
+  return normalizeDbObject(plants).map(plant => ({
     ...plant,
     photos: (plant.photos || []).map(photo => ({
       ...photo,
@@ -334,7 +393,7 @@ export function getPlants() {
 export function getPosts() {
   initDb();
   const posts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-  return posts.map(post => ({
+  return normalizeDbObject(posts).map(post => ({
     ...post,
     url: sanitizeImageUrl(post.url)
   }));
@@ -343,7 +402,8 @@ export function getPosts() {
 // Obter todos os alunos e pontuações do LocalStorage
 export function getUsers() {
   initDb();
-  return JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+  const users = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+  return normalizeDbObject(users);
 }
 
 // Salvar plantas no LocalStorage
@@ -390,9 +450,10 @@ export async function loginUser(email, password) {
       if (error) {
         console.warn('[Supabase Login] Erro ao buscar usuário:', error);
       } else if (user) {
+        const normalizedUser = normalizeDbObject(user);
         // Se o usuário já existe mas não tem senha cadastrada (migração), define a digitada
-        if (!user.password) {
-          user.password = password;
+        if (!normalizedUser.password) {
+          normalizedUser.password = password;
           // Atualiza no Supabase
           await supabase.from('users').update({ password }).eq('email', cleanEmail);
           
@@ -400,25 +461,25 @@ export async function loginUser(email, password) {
           const users = getUsers();
           const localIdx = users.findIndex(u => u.email === cleanEmail);
           if (localIdx === -1) {
-            users.push(user);
+            users.push(normalizedUser);
           } else {
-            users[localIdx] = user;
+            users[localIdx] = normalizedUser;
           }
           saveUsers(users);
-          return { ...user, isAdmin: false };
+          return { ...normalizedUser, isAdmin: false };
         }
 
-        if (user.password === password) {
+        if (normalizedUser.password === password) {
           // Atualiza dados locais
           const users = getUsers();
           const localIdx = users.findIndex(u => u.email === cleanEmail);
           if (localIdx === -1) {
-            users.push(user);
+            users.push(normalizedUser);
           } else {
-            users[localIdx] = user;
+            users[localIdx] = normalizedUser;
           }
           saveUsers(users);
-          return { ...user, isAdmin: false };
+          return { ...normalizedUser, isAdmin: false };
         } else {
           throw new Error('Senha incorreta.');
         }
@@ -646,12 +707,14 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
   savePosts(posts);
 
   if (supabase) {
-    Promise.all([
-      supabase.from('plants').insert([newPlant]),
-      supabase.from('posts').insert([newPost])
-    ]).then(([resPlants, resPosts]) => {
-      if (resPlants.error) console.error('[Supabase Error] addPlant (plants):', resPlants.error);
-      if (resPosts.error) console.error('[Supabase Error] addPlant (posts):', resPosts.error);
+    supabase.from('plants').insert([newPlant]).then(({ error: plantErr }) => {
+      if (plantErr) {
+        console.error('[Supabase Error] addPlant (plants):', plantErr);
+        return;
+      }
+      supabase.from('posts').insert([newPost]).then(({ error: postErr }) => {
+        if (postErr) console.error('[Supabase Error] addPlant (posts):', postErr);
+      });
     });
   }
 
