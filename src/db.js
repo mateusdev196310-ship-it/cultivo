@@ -119,7 +119,10 @@ export async function syncLocalToSupabase() {
         const exists = serverFeedback.some(f => f.email === localFb.email);
         if (!exists) {
           console.log(`[Cultiva Sync] Enviando feedback offline para o Supabase: ${localFb.email}`);
-          await supabase.from('feedback').insert([localFb]);
+          const emojiMap = { '😍': 4, '🙂': 3, '😐': 2, '😢': 1 };
+          const dbVote = emojiMap[localFb.vote] || 4;
+          const dbEntry = { ...localFb, vote: dbVote };
+          await supabase.from('feedback').insert([dbEntry]);
         }
       }
     }
@@ -196,7 +199,14 @@ export async function initDb(forceSync = false) {
       }
 
       if (errorFeedback) console.warn('[Supabase Sync] Erro ao buscar feedback:', errorFeedback);
-      else if (feedback) localStorage.setItem('cultiva_feedback', JSON.stringify(feedback));
+      else if (feedback) {
+        const intMap = { 4: '😍', 3: '🙂', 2: '😐', 1: '😢' };
+        const mappedFeedback = feedback.map(f => {
+          const emojiVote = intMap[f.vote] || f.vote;
+          return { ...f, vote: emojiVote };
+        });
+        localStorage.setItem('cultiva_feedback', JSON.stringify(mappedFeedback));
+      }
 
       console.log('%c[Cultiva] Dados sincronizados com o Supabase com sucesso!', 'color: #22c55e; font-weight: bold;');
     } catch (err) {
@@ -910,7 +920,10 @@ export function submitClassFeedback(studentEmail, studentName, vote) {
   localStorage.setItem('cultiva_feedback', JSON.stringify(feedbackList));
 
   if (supabase) {
-    supabase.from('feedback').upsert([feedbackEntry]).then(({ error }) => {
+    const emojiMap = { '😍': 4, '🙂': 3, '😐': 2, '😢': 1 };
+    const dbVote = emojiMap[vote] || 4;
+    const dbEntry = { ...feedbackEntry, vote: dbVote };
+    supabase.from('feedback').upsert([dbEntry]).then(({ error }) => {
       if (error) console.error('[Supabase Error] submitClassFeedback:', error);
     });
   }
