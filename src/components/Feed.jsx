@@ -1,28 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Send, Trash2, ShieldAlert } from 'lucide-react';
 import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers } from '../db';
+import { supabase } from '../supabaseClient';
 
 export default function Feed({ user }) {
   const [posts, setPosts] = useState([]);
   const [commentInputs, setCommentInputs] = useState({}); // { [postId]: '' }
 
-  const loadPosts = () => {
+  const loadPosts = async () => {
+    // Busca dados atualizados do servidor se estiver online
+    if (supabase) {
+      try {
+        const [ { data: freshPosts }, { data: freshUsers } ] = await Promise.all([
+          supabase.from('posts').select('*'),
+          supabase.from('users').select('*')
+        ]);
+        if (freshPosts) {
+          const sortedPosts = [...freshPosts].sort((a, b) => b.id.localeCompare(a.id));
+          localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
+        }
+        if (freshUsers) {
+          localStorage.setItem('cultiva_users', JSON.stringify(freshUsers));
+        }
+      } catch (err) {
+        console.warn('[Feed Sync] Erro ao buscar atualizações do Supabase:', err);
+      }
+    }
+
     const allPosts = getPosts();
+    const allUsers = getUsers();
+    
+    // Mapeia o e-mail (em minúsculo e sem espaços) para o ID da turma
+    const authorTurmaMap = {};
+    allUsers.forEach(u => {
+      if (u.email) {
+        authorTurmaMap[u.email.trim().toLowerCase()] = u.turmaId;
+      }
+    });
+
     if (user.isAdmin) {
       setPosts(allPosts);
     } else {
-      const allUsers = getUsers();
-      const authorTurmaMap = {};
-      allUsers.forEach(u => {
-        authorTurmaMap[u.email] = u.turmaId;
-      });
+      const currentUserEmail = (user.email || '').trim().toLowerCase();
+      const currentUserTurmaId = user.turmaId;
 
-      if (user.turmaId) {
-        // Aluno agrupado vê apenas posts de alunos da mesma turma
-        setPosts(allPosts.filter(post => authorTurmaMap[post.studentEmail] === user.turmaId));
+      if (currentUserTurmaId) {
+        // Aluno com turma vê apenas posts de alunos da mesma turma e seus próprios posts
+        setPosts(allPosts.filter(post => {
+          const authorEmail = (post.studentEmail || '').trim().toLowerCase();
+          return authorEmail === currentUserEmail || authorTurmaMap[authorEmail] === currentUserTurmaId;
+        }));
       } else {
-        // Aluno não agrupado vê todos os posts
-        setPosts(allPosts);
+        // Aluno sem turma vê apenas seus próprios posts para não misturar com outras turmas
+        setPosts(allPosts.filter(post => (post.studentEmail || '').trim().toLowerCase() === currentUserEmail));
       }
     }
   };

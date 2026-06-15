@@ -133,7 +133,7 @@ export default function Auth({ onLogin }) {
               <label htmlFor="name">Nome Completo</label>
               <div className="input-wrapper">
                 <User size={18} className="input-icon" />
-                <input
+                 <input
                   id="name"
                   type="text"
                   placeholder="Seu nome completo"
@@ -142,6 +142,7 @@ export default function Auth({ onLogin }) {
                     setName(e.target.value);
                     setError('');
                   }}
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -162,6 +163,7 @@ export default function Auth({ onLogin }) {
                   setEmail(e.target.value);
                   setError('');
                 }}
+                disabled={isLoading}
                 required
               />
             </div>
@@ -186,6 +188,7 @@ export default function Auth({ onLogin }) {
                   setPassword(e.target.value);
                   setError('');
                 }}
+                disabled={isLoading}
                 required
               />
             </div>
