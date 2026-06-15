@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, MessageSquare, Send, Trash2, ShieldAlert } from 'lucide-react';
+import { Heart, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
 import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers } from '../db';
 import { supabase } from '../supabaseClient';
 
 export default function Feed({ user }) {
   const [posts, setPosts] = useState([]);
   const [commentInputs, setCommentInputs] = useState({}); // { [postId]: '' }
+  const [loading, setLoading] = useState(true);
+
+  // Estados do Toast
+  const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
+
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+  };
 
   const loadPosts = async () => {
     // Busca dados atualizados do servidor se estiver online
@@ -38,32 +51,121 @@ export default function Feed({ user }) {
       }
     });
 
+    let filtered = [];
     if (user.isAdmin) {
-      setPosts(allPosts);
+      filtered = allPosts;
     } else {
       const currentUserEmail = (user.email || '').trim().toLowerCase();
       const currentUserTurmaId = user.turmaId;
 
       if (currentUserTurmaId) {
         // Aluno com turma vê apenas posts de alunos da mesma turma e seus próprios posts
-        setPosts(allPosts.filter(post => {
+        filtered = allPosts.filter(post => {
           const authorEmail = (post.studentEmail || '').trim().toLowerCase();
           return authorEmail === currentUserEmail || authorTurmaMap[authorEmail] === currentUserTurmaId;
-        }));
+        });
       } else {
         // Aluno sem turma vê apenas seus próprios posts para não misturar com outras turmas
-        setPosts(allPosts.filter(post => (post.studentEmail || '').trim().toLowerCase() === currentUserEmail));
+        filtered = allPosts.filter(post => (post.studentEmail || '').trim().toLowerCase() === currentUserEmail);
       }
     }
+    setPosts(filtered);
+    setLoading(false);
   };
 
+  // Carregar do cache imediatamente na inicialização
   useEffect(() => {
+    const cachedPosts = getPosts();
+    const allUsers = getUsers();
+    
+    const authorTurmaMap = {};
+    allUsers.forEach(u => {
+      if (u.email) {
+        authorTurmaMap[u.email.trim().toLowerCase()] = u.turmaId;
+      }
+    });
+
+    let initialPosts = [];
+    if (user.isAdmin) {
+      initialPosts = cachedPosts;
+    } else {
+      const currentUserEmail = (user.email || '').trim().toLowerCase();
+      const currentUserTurmaId = user.turmaId;
+
+      if (currentUserTurmaId) {
+        initialPosts = cachedPosts.filter(post => {
+          const authorEmail = (post.studentEmail || '').trim().toLowerCase();
+          return authorEmail === currentUserEmail || authorTurmaMap[authorEmail] === currentUserTurmaId;
+        });
+      } else {
+        initialPosts = cachedPosts.filter(post => (post.studentEmail || '').trim().toLowerCase() === currentUserEmail);
+      }
+    }
+    setPosts(initialPosts);
+    if (initialPosts.length > 0) {
+      setLoading(false);
+    }
+
     loadPosts();
   }, [user]);
 
+  // Inscrição em Tempo Real para Notificar sobre novos Posts no Feed
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('feed-new-posts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+        const newPost = payload.new;
+        if (!newPost) return;
+
+        const currentUser = JSON.parse(localStorage.getItem('cultiva_user') || 'null');
+        if (!currentUser) return;
+
+        const authorEmail = (newPost.studentEmail || '').trim().toLowerCase();
+        const currentUserEmail = (currentUser.email || '').trim().toLowerCase();
+
+        // Não notifica se o autor do post for o próprio usuário
+        if (authorEmail === currentUserEmail) return;
+
+        // Verifica se é da mesma turma ou se é administrador
+        const allUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+        const authorUser = allUsers.find(u => u.email && u.email.trim().toLowerCase() === authorEmail);
+        const authorTurmaId = authorUser ? authorUser.turmaId : null;
+
+        const isSameClass = currentUser.isAdmin || (currentUser.turmaId && currentUser.turmaId === authorTurmaId);
+
+        if (isSameClass) {
+          const notifEnabled = localStorage.getItem('cultiva_notif_enabled') === 'true';
+          if (notifEnabled && Notification.permission === 'granted') {
+            try {
+              new Notification('🌿 Nova evolução no Feed!', {
+                body: `${newPost.studentName} postou sobre ${newPost.plantName} (Dia ${newPost.day})!`,
+                icon: '/favicon.svg',
+                tag: 'cultiva-new-post-' + newPost.id,
+              });
+            } catch (e) {
+              console.warn('[Realtime Notification] Erro ao disparar notificação:', e);
+            }
+          }
+          // Recarrega em background para atualizar a lista
+          loadPosts();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const handleLike = (postId) => {
-    toggleLikePost(postId, user.email);
-    loadPosts();
+    const updatedPost = toggleLikePost(postId, user.email);
+    if (updatedPost) {
+      setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+      const hasLiked = updatedPost.likes.includes(user.email);
+      triggerToast(hasLiked ? "Você curtiu esta publicação! +5 XP 💖" : "Curtida removida.");
+    }
   };
 
   const handleCommentSubmit = (e, postId) => {
@@ -71,11 +173,14 @@ export default function Feed({ user }) {
     const commentText = commentInputs[postId];
     if (!commentText || !commentText.trim()) return;
 
-    addCommentToPost(postId, user.name, user.email, commentText.trim());
+    const updatedPost = addCommentToPost(postId, user.name, user.email, commentText.trim());
+    if (updatedPost) {
+      setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+      triggerToast("Comentário enviado! +10 XP 🌟");
+    }
     
     // Limpar input do post correspondente
     setCommentInputs(prev => ({ ...prev, [postId]: '' }));
-    loadPosts();
   };
 
   const handleCommentChange = (postId, value) => {
@@ -86,14 +191,24 @@ export default function Feed({ user }) {
   const handleDeletePost = (postId) => {
     if (window.confirm("Deseja realmente excluir esta postagem do feed?")) {
       deletePost(postId);
-      loadPosts();
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      triggerToast("Publicação excluída.");
     }
   };
 
   const handleDeleteComment = (postId, commentId) => {
     if (window.confirm("Deseja realmente excluir este comentário?")) {
       deleteComment(postId, commentId);
-      loadPosts();
+      setPosts(prev => prev.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            comments: p.comments.filter(c => c.id !== commentId)
+          };
+        }
+        return p;
+      }));
+      triggerToast("Comentário excluído.");
     }
   };
 
@@ -105,7 +220,12 @@ export default function Feed({ user }) {
       </div>
 
       <div className="posts-list">
-        {posts.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '12px' }}>
+            <Loader2 className="spinner text-green" style={{ width: '36px', height: '36px', animation: 'spin 1.5s linear infinite', color: 'var(--primary)' }} />
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Carregando publicações...</span>
+          </div>
+        ) : posts.length === 0 ? (
           <div className="empty-state card-nature">
             <MessageSquare size={48} className="empty-icon text-muted" />
             <h3>O feed está vazio</h3>
@@ -218,6 +338,12 @@ export default function Feed({ user }) {
             );
           })
         )}
+      </div>
+
+      {/* Toast de Feedback */}
+      <div className={`toast-notification ${showToast ? 'show' : ''}`}>
+        <span>🌱</span>
+        <span>{toastMessage}</span>
       </div>
     </div>
   );
