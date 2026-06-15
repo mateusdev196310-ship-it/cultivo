@@ -1,6 +1,8 @@
 import { initialPlants, initialPosts, initialUsers } from './data/mockData';
 import { supabase } from './supabaseClient';
 
+const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
+
 export function getTodayDateBR() {
   const now = new Date();
   const day = String(now.getDate()).padStart(2, '0');
@@ -46,6 +48,14 @@ export function normalizeDbObject(obj) {
   for (const [lowerKey, camelKey] of Object.entries(keyMap)) {
     if (lowerKey in normalized) {
       normalized[camelKey] = normalized[lowerKey];
+    }
+  }
+
+  // Enforce isAdmin = true for admin emails
+  if (normalized.email && typeof normalized.email === 'string') {
+    const cleanEmail = normalized.email.trim().toLowerCase();
+    if (ADMIN_EMAILS.includes(cleanEmail)) {
+      normalized.isAdmin = true;
     }
   }
 
@@ -115,7 +125,7 @@ export async function syncLocalToSupabase() {
 
   try {
     // 1. Sincronizar usuários criados/atualizados offline
-    const localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+    const localUsers = normalizeDbObject(JSON.parse(localStorage.getItem('cultiva_users') || '[]'));
     const { data: serverUsers, error: errUsers } = await supabase.from('users').select('*');
     if (!errUsers && serverUsers) {
       const normalizedServerUsers = normalizeDbObject(serverUsers);
@@ -209,6 +219,45 @@ export async function syncLocalToSupabase() {
 
 // Inicializar banco de dados no LocalStorage se não existir
 export async function initDb(forceSync = false) {
+  // Remover dados de teste de mateus9811sc3@gmail.com para evitar ressincronização indesejada
+  if (forceSync) {
+    const testEmail = 'mateus9811sc3@gmail.com';
+    
+    let localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+    if (localUsers.some(u => u.email === testEmail)) {
+      localUsers = localUsers.filter(u => u.email !== testEmail);
+      localStorage.setItem('cultiva_users', JSON.stringify(localUsers));
+    }
+    
+    let localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+    if (localPlants.some(p => p.studentEmail === testEmail)) {
+      localPlants = localPlants.filter(p => p.studentEmail !== testEmail);
+      localStorage.setItem('cultiva_plants', JSON.stringify(localPlants));
+    }
+    
+    let localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+    if (localPosts.some(p => p.studentEmail === testEmail)) {
+      localPosts = localPosts.filter(p => p.studentEmail !== testEmail);
+      localStorage.setItem('cultiva_posts', JSON.stringify(localPosts));
+    }
+
+    const session = localStorage.getItem('cultiva_user');
+    if (session) {
+      const parsed = JSON.parse(session);
+      if (parsed.email === testEmail) {
+        localStorage.removeItem('cultiva_user');
+      }
+    }
+
+    if (supabase) {
+      supabase.from('users').delete().eq('email', testEmail).then(({ error }) => {
+        if (!error) {
+          console.log(`[Cultiva Cleanup] Usuário de teste ${testEmail} e dependências excluídos com sucesso do Supabase.`);
+        }
+      });
+    }
+  }
+
   // Limpeza forçada única dos caches e usuários antigos locais para migração limpa para o Supabase
   if (localStorage.getItem('cultiva_cache_version') !== 'v2') {
     localStorage.removeItem('cultiva_plants');
@@ -421,18 +470,24 @@ export function saveUsers(users) {
   localStorage.setItem('cultiva_users', JSON.stringify(users));
 }
 
-// E-mails administrativos padrão
-const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
-
 // Realizar Login
 export async function loginUser(email, password) {
   initDb();
   const cleanEmail = email.trim().toLowerCase();
+  const isAdmin = ADMIN_EMAILS.includes(cleanEmail);
   
   // 1. Verificar se é ADM
-  if (ADMIN_EMAILS.includes(cleanEmail)) {
+  if (isAdmin) {
     if (password === '130122') {
-      return { name: 'Ester Ferreira (ADM)', email: cleanEmail, isAdmin: true, points: 0 };
+      const adminUser = { name: 'Ester Ferreira (ADM)', email: cleanEmail, isAdmin: true, points: 0 };
+      if (supabase) {
+        // Garantir que no banco ela esteja como admin
+        supabase.from('users').update({ isAdmin: true, name: 'Ester Ferreira (ADM)' }).eq('email', cleanEmail)
+          .then(({ error }) => {
+            if (error) console.error('[Supabase Admin Update] Erro ao atualizar status de admin:', error);
+          });
+      }
+      return adminUser;
     } else {
       throw new Error('Senha incorreta do administrador.');
     }
@@ -466,7 +521,7 @@ export async function loginUser(email, password) {
             users[localIdx] = normalizedUser;
           }
           saveUsers(users);
-          return { ...normalizedUser, isAdmin: false };
+          return { ...normalizedUser, isAdmin: isAdmin };
         }
 
         if (normalizedUser.password === password) {
@@ -479,7 +534,7 @@ export async function loginUser(email, password) {
             users[localIdx] = normalizedUser;
           }
           saveUsers(users);
-          return { ...normalizedUser, isAdmin: false };
+          return { ...normalizedUser, isAdmin: isAdmin };
         } else {
           throw new Error('Senha incorreta.');
         }
@@ -506,11 +561,11 @@ export async function loginUser(email, password) {
   if (!user.password) {
     user.password = password;
     saveUsers(users);
-    return { ...user, isAdmin: false };
+    return { ...user, isAdmin: isAdmin };
   }
 
   if (user.password === password) {
-    return { ...user, isAdmin: false };
+    return { ...user, isAdmin: isAdmin };
   } else {
     throw new Error('Senha incorreta.');
   }
@@ -621,16 +676,18 @@ export function awardPoints(studentEmail, amount, studentName) {
   const cleanEmail = studentEmail.trim().toLowerCase();
   let userIndex = users.findIndex(u => u.email === cleanEmail);
   let updatedUser;
+  const isAdmin = ADMIN_EMAILS.includes(cleanEmail);
 
   if (userIndex === -1) {
     const startPoints = amount < 0 ? 0 : amount;
-    updatedUser = { email: cleanEmail, name: studentName || "Estudante", points: startPoints, turmaId: null, isAdmin: false };
+    updatedUser = { email: cleanEmail, name: studentName || (isAdmin ? "Ester Ferreira (ADM)" : "Estudante"), points: startPoints, turmaId: null, isAdmin: isAdmin };
     users.push(updatedUser);
   } else {
     users[userIndex].points += amount;
     if (users[userIndex].points < 0) {
       users[userIndex].points = 0;
     }
+    users[userIndex].isAdmin = isAdmin;
     updatedUser = users[userIndex];
   }
 
@@ -642,6 +699,7 @@ export function awardPoints(studentEmail, amount, studentName) {
     const parsed = JSON.parse(session);
     if (parsed.email === cleanEmail) {
       parsed.points = updatedUser.points;
+      parsed.isAdmin = updatedUser.isAdmin;
       localStorage.setItem('cultiva_user', JSON.stringify(parsed));
     }
   }
@@ -1065,7 +1123,6 @@ export function checkInactivityPenalties(studentEmail) {
   if (!studentEmail) return false;
   
   // E-mails administrativos não participam de ranking/penalidades
-  const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
   if (ADMIN_EMAILS.includes(studentEmail.trim().toLowerCase())) return false;
 
   const plants = getPlants();
