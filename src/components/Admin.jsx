@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, Users, Sprout, BarChart3, MessageSquare, Heart, RefreshCw, Plus, Trash2, Camera, X } from 'lucide-react';
-import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma, compressImage, deletePlant } from '../db';
+import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma, compressImage, deletePlant, formatDateBR } from '../db';
 
 
 const TABS = [
@@ -420,7 +420,7 @@ export default function Admin() {
                     <div className="turma-info">
                       <h4>{turma.nome}</h4>
                       <span className="turma-meta">
-                        {alunos.length} aluno{alunos.length !== 1 ? 's' : ''} • Criada em {turma.criadaEm}
+                        {alunos.length} aluno{alunos.length !== 1 ? 's' : ''} • Criada em {formatDateBR(turma.criadaEm)}
                       </span>
                     </div>
                     <div className="turma-actions" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>

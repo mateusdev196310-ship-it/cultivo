@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Camera, Sparkles, Calendar, ArrowLeft, Leaf, Eye, Send, Trash2 } from 'lucide-react';
-import { getPlants, addPlant, updatePlantPhoto, compressImage, deletePlantPhoto } from '../db';
+import { getPlants, addPlant, updatePlantPhoto, compressImage, deletePlantPhoto, formatDateBR } from '../db';
 
 const PHOTO_PRESETS = [
   { label: "Semente/Plantio", url: "https://images.unsplash.com/photo-1532467411038-57680e4ded04?w=600&auto=format&fit=crop&q=60" },
@@ -275,7 +275,7 @@ export default function Gallery({ user }) {
             <p className="student-tag">Cultivado por: <strong>{selectedPlant.studentName}</strong></p>
             <div className="date-tag">
               <Calendar size={14} />
-              <span>Início em: {selectedPlant.startDate}</span>
+              <span>Início em: {formatDateBR(selectedPlant.startDate)}</span>
             </div>
           </div>
 
@@ -483,7 +483,7 @@ export default function Gallery({ user }) {
                       
                       <div className="timeline-card-content">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <p className="date-small" style={{ margin: 0 }}>Registrado em: {entry.date}</p>
+                          <p className="date-small" style={{ margin: 0 }}>Registrado em: {formatDateBR(entry.date)}</p>
                           {user.isAdmin && (
                             <button
                               type="button"

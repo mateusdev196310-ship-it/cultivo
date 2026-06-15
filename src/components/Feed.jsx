@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
-import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers } from '../db';
+import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers, formatDateBR } from '../db';
 import { supabase } from '../supabaseClient';
 
 export default function Feed({ user }) {
@@ -29,7 +29,9 @@ export default function Feed({ user }) {
           supabase.from('users').select('*')
         ]);
         if (freshPosts) {
-          const sortedPosts = [...freshPosts].sort((a, b) => b.id.localeCompare(a.id));
+          const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+          const unsyncedPosts = localPosts.filter(lp => !freshPosts.some(sp => sp.id === lp.id));
+          const sortedPosts = [...freshPosts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
           localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
         }
         if (freshUsers) {
@@ -243,9 +245,16 @@ export default function Feed({ user }) {
                       {post.studentName.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h4>{post.studentName}</h4>
-                      <p className="post-meta">
-                        Planta: <strong>{post.plantName}</strong> • Dia {post.day} • {post.date}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <h4 style={{ margin: 0 }}>{post.studentName}</h4>
+                        {post.day === 1 ? (
+                          <span style={{ fontSize: '8px', backgroundColor: 'var(--primary-light)', color: 'var(--primary-dark)', padding: '2px 6px', borderRadius: '8px', fontWeight: 800, textTransform: 'uppercase' }}>🌱 Novo Cultivo</span>
+                        ) : (
+                          <span style={{ fontSize: '8px', backgroundColor: '#fff3e0', color: '#e65100', padding: '2px 6px', borderRadius: '8px', fontWeight: 800, textTransform: 'uppercase' }}>📈 Evolução</span>
+                        )}
+                      </div>
+                      <p className="post-meta" style={{ marginTop: '2px' }}>
+                        Planta: <strong>{post.plantName}</strong> • Dia {post.day} • {formatDateBR(post.date)}
                       </p>
                     </div>
                   </div>

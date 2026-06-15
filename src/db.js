@@ -1,6 +1,24 @@
 import { initialPlants, initialPosts, initialUsers } from './data/mockData';
 import { supabase } from './supabaseClient';
 
+export function getTodayDateBR() {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+export function formatDateBR(dateStr) {
+  if (!dateStr) return '';
+  if (dateStr.includes('/')) return dateStr;
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
 // Função para simular a análise de estágio por IA com base na espécie da planta e no dia de cultivo
 export function analyzePlantStage(species, day) {
   const cleanSpecies = species.trim() || "Planta";
@@ -189,12 +207,17 @@ export async function initDb(forceSync = false) {
       else if (users) localStorage.setItem('cultiva_users', JSON.stringify(users));
 
       if (errorPlants) console.warn('[Supabase Sync] Erro ao buscar plantas:', errorPlants);
-      else if (plants) localStorage.setItem('cultiva_plants', JSON.stringify(plants));
+      else if (plants) {
+        const localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+        const unsyncedPlants = localPlants.filter(lp => !plants.some(sp => sp.id === lp.id));
+        localStorage.setItem('cultiva_plants', JSON.stringify([...plants, ...unsyncedPlants]));
+      }
 
       if (errorPosts) console.warn('[Supabase Sync] Erro ao buscar posts:', errorPosts);
       else if (posts) {
-        // Ordena para que os IDs maiores (mais recentes) fiquem no topo
-        const sortedPosts = [...posts].sort((a, b) => b.id.localeCompare(a.id));
+        const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+        const unsyncedPosts = localPosts.filter(lp => !posts.some(sp => sp.id === lp.id));
+        const sortedPosts = [...posts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
         localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
       }
 
@@ -249,7 +272,7 @@ export function createTurma(nome, fotoUrl) {
     id: 'turma-' + Date.now(),
     nome: nome.trim(),
     fotoUrl: fotoUrl || null,
-    criadaEm: new Date().toISOString().split('T')[0]
+    criadaEm: getTodayDateBR()
   };
   turmas.push(newTurma);
   saveTurmas(turmas);
@@ -577,7 +600,7 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
   const posts = getPosts();
 
   const newPlantId = 'plant-' + Date.now();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateBR();
 
   const analysisResult = analyzePlantStage(species, 1);
 
@@ -647,7 +670,7 @@ export function updatePlantPhoto(plantId, day, photoUrl, notes, customStageName)
   if (plantIndex === -1) return null;
 
   const plant = plants[plantIndex];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateBR();
   const analysisResult = analyzePlantStage(plant.species, day);
 
   const newPhotoEntry = {
@@ -908,7 +931,7 @@ export function submitClassFeedback(studentEmail, studentName, vote) {
     email: cleanEmail,
     name: studentName,
     vote,
-    date: new Date().toISOString().split('T')[0]
+    date: getTodayDateBR()
   };
 
   if (existingIdx > -1) {
