@@ -54,8 +54,12 @@ export async function syncLocalToSupabase() {
         if (!serverUser) {
           console.log(`[Cultiva Sync] Cadastrando usuário offline no Supabase: ${localUser.email}`);
           await supabase.from('users').insert([localUser]);
-        } else if (localUser.points > serverUser.points || localUser.password !== serverUser.password) {
-          console.log(`[Cultiva Sync] Atualizando pontuação/senha offline no Supabase: ${localUser.email}`);
+        } else if (
+          localUser.points > serverUser.points ||
+          localUser.password !== serverUser.password ||
+          localUser.turmaId !== serverUser.turmaId
+        ) {
+          console.log(`[Cultiva Sync] Atualizando pontuação/senha/turma offline no Supabase: ${localUser.email}`);
           await supabase.from('users').update({
             points: localUser.points,
             password: localUser.password,
