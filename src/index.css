@@ -78,47 +78,26 @@ body {
   overflow: hidden;
 }
 
-/* Tablets e Celulares (telas de até 1024px): tira a moldura de celular e usa tela cheia de forma responsiva */
+/* Para todos os celulares e tablets (telas de até 1024px): remove molduras e exibe em tela cheia de forma 100% responsiva */
 @media (max-width: 1024px) {
   body {
-    background-color: #1a2a1d; /* Fundo escuro verdejante nas laterais no tablet */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .mobile-app-wrapper {
-    padding: 20px 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100vh;
-  }
-  .mobile-frame {
-    border-radius: var(--radius-lg);
-    max-width: 600px;
-    width: 100%;
-    height: 100%;
-    max-height: 100%;
-    border: 3px solid #2d3e31;
-    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.3);
-  }
-}
-
-/* Celulares (telas de até 480px): tela cheia completa */
-@media (max-width: 480px) {
-  body {
     background-color: var(--bg-app);
+    display: block;
   }
   .mobile-app-wrapper {
     padding: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
   }
   .mobile-frame {
-    border-radius: 0;
-    max-width: 100vw;
-    max-height: 100vh;
-    border: none;
-    box-shadow: none;
+    border-radius: 0 !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 }
 
@@ -3019,22 +2998,22 @@ select option {
   animation: pulse 2s infinite ease-in-out;
 }
 
-/* Ajustes para imagens em telas maiores (tablets / min-width: 480px) */
-@media (min-width: 480px) {
+/* Ajustes específicos para tablets e telas maiores em ambiente mobile (largura de tela física entre 481px e 1024px) */
+@media (min-width: 481px) and (max-width: 1024px) {
   .post-image {
-    height: 340px !important; /* Mais alto no tablet para manter proporção */
+    height: 380px !important; /* Mais alto no tablet para manter proporção */
   }
   .timeline-card-image {
-    height: 240px !important; /* Mais alto na linha do tempo no tablet */
+    height: 260px !important; /* Mais alto na linha do tempo no tablet */
   }
   .plants-grid {
     grid-template-columns: repeat(3, 1fr) !important; /* 3 colunas de plantas no tablet */
-    gap: 20px !important;
+    gap: 24px !important;
   }
   .feed-post, .card-nature, .welcome-banner {
-    max-width: 560px;
-    margin-left: auto;
-    margin-right: auto;
+    max-width: 650px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 }
 
