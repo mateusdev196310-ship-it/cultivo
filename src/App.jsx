@@ -86,6 +86,34 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Sincronizar perfil do usuário com o Supabase ao mudar de aba para atualizar turma/XP
+  useEffect(() => {
+    const syncUserProfile = async () => {
+      if (!user || !supabase) return;
+      try {
+        const cleanEmail = user.email.trim().toLowerCase();
+        const { data: latestProfile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        
+        if (latestProfile) {
+          const hasChanged = latestProfile.turmaId !== user.turmaId || latestProfile.points !== user.points;
+          if (hasChanged) {
+            const updated = { ...user, ...latestProfile };
+            setUser(updated);
+            localStorage.setItem('cultiva_user', JSON.stringify(updated));
+            console.log('[App Sync] Perfil do usuário atualizado a partir do banco:', updated);
+          }
+        }
+      } catch (err) {
+        console.warn('[App Sync] Falha ao sincronizar perfil do usuário:', err);
+      }
+    };
+    syncUserProfile();
+  }, [activeTab, user?.email, user?.turmaId, user?.points]);
+
   // Capturar evento de instalação do PWA
   useEffect(() => {
     const handleBeforeInstall = (e) => {
