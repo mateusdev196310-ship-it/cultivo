@@ -149,7 +149,7 @@ export const initialPlants = [];
 export const initialPosts = [];
 export const initialUsers = [];
 
-export const quizQuestions = [
+const staticQuizQuestions = [
   {
     id: 1,
     question: "Qual é a primeira estrutura visível a emergir da semente durante a germinação?",
@@ -630,5 +630,261 @@ export const quizQuestions = [
     answerIndex: 1,
     explanation: "O húmus é o produto final da decomposição. Ele tem cheiro de floresta, é escuro, retém água perfeitamente e alimenta as plantas com minerais de absorção lenta."
   }
+];
+
+function generateCombinatorialQuestions() {
+  const generated = [];
+  let currentId = 100;
+
+  const speciesList = [
+    "Feijão", "Girassol", "Tomate", "Alface", "Morango", 
+    "Milho", "Ervilha", "Pimentão", "Manjericão", "Salsa"
+  ];
+
+  // 1. Nutrient Deficiencies (5 nutrients * 10 species = 50 questions)
+  const nutrients = [
+    { name: "Nitrogênio (N)", deficiency: "folhas mais velhas amareladas e crescimento muito lento", correction: "adicionar composto orgânico rico em matéria verde" },
+    { name: "Fósforo (P)", deficiency: "folhas arroxeadas ou verde-escuras opacas e raízes fracas", correction: "adicionar farinha de ossos ou adubo fosfatado" },
+    { name: "Potássio (K)", deficiency: "pontas e bordas das folhas secas ou queimadas e frutos fracos", correction: "adicionar cinzas de madeira ou cascas de banana picadas" },
+    { name: "Cálcio (Ca)", deficiency: "folhas jovens deformadas, enroladas para baixo e pontas pretas", correction: "adicionar casca de ovo seca e triturada bem fina" },
+    { name: "Magnésio (Mg)", deficiency: "amarelamento entre as nervuras das folhas, mas as nervuras continuam verdes", correction: "adicionar sulfato de magnésio (sal de epsom) diluído na rega" }
+  ];
+
+  for (const species of speciesList) {
+    for (let i = 0; i < nutrients.length; i++) {
+      const correct = nutrients[i];
+      const incorrect1 = nutrients[(i + 1) % nutrients.length];
+      const incorrect2 = nutrients[(i + 2) % nutrients.length];
+      const incorrect3 = nutrients[(i + 3) % nutrients.length];
+
+      generated.push({
+        id: currentId++,
+        question: `Um aluno está cultivando **${species}** e percebeu que as ${correct.deficiency}. Qual nutriente está faltando e como ele deve corrigir?`,
+        options: [
+          `Falta de ${correct.name} - Corrigir ao ${correct.correction}`,
+          `Falta de ${incorrect1.name} - Corrigir ao ${incorrect1.correction}`,
+          `Falta de ${incorrect2.name} - Corrigir ao ${incorrect2.correction}`,
+          `Falta de ${incorrect3.name} - Corrigir ao ${incorrect3.correction}`
+        ],
+        answerIndex: 0,
+        explanation: `A deficiência de ${correct.name} causa especificamente ${correct.deficiency}. A melhor correção ecológica é ${correct.correction}.`
+      });
+    }
+  }
+
+  // 2. Germination Days (5 day stages * 10 species = 50 questions)
+  const stages = [
+    { range: "Dia 1 ao 2", stage: "Absorção de água", desc: "A semente absorve água do solo úmido e incha, ativando seu metabolismo celular dormente." },
+    { range: "Dia 3 ao 4", stage: "Emergência da radícula", desc: "A primeira raiz (radícula) rompe a casca da semente e cresce para baixo para buscar água." },
+    { range: "Dia 5 ao 6", stage: "Crescimento do caulículo", desc: "O primeiro caule (caulículo) emerge curvado em forma de gancho para vencer o atrito da terra." },
+    { range: "Dia 7 ao 9", stage: "Abertura dos cotilédones", desc: "As folhas temporárias da semente se abrem e iniciam a primeira fotossíntese captando luz solar." },
+    { range: "Dia 10 ou mais", stage: "Surgimento das folhas verdadeiras", desc: "A plântula desenvolve folhas definitivas e os cotilédones começam a murchar e cair." }
+  ];
+
+  for (const species of speciesList) {
+    for (let i = 0; i < stages.length; i++) {
+      const correct = stages[i];
+      const incorrect1 = stages[(i + 1) % stages.length];
+      const incorrect2 = stages[(i + 2) % stages.length];
+      const incorrect3 = stages[(i + 3) % stages.length];
+
+      generated.push({
+        id: currentId++,
+        question: `Durante o cultivo de **${species}**, no período correspondente ao **${correct.range}**, qual é o estágio biológico esperado para a planta?`,
+        options: [
+          `${incorrect1.stage} (Estágio incorreto para este período)`,
+          `${correct.stage} (${correct.desc})`,
+          `${incorrect2.stage} (Estágio incorreto para este período)`,
+          `${incorrect3.stage} (Estágio incorreto para este período)`
+        ],
+        answerIndex: 1,
+        explanation: `No ${correct.range} do cultivo de ${species}, espera-se a fase de ${correct.stage}. Isso ocorre porque ${correct.desc}`
+      });
+    }
+  }
+
+  // 3. Photosynthesis Light & Water Conditions (4 conditions * 10 species = 40 questions)
+  const conditions = [
+    { cond: "sombra total (ausência de luz)", effect: "A fase clara da fotossíntese para, impedindo a produção de oxigênio e glicose.", expl: "A luz solar é a fonte de energia que quebra a molécula de água nos tilacoides para gerar ATP e NADPH." },
+    { cond: "luz solar direta moderada (ideal)", effect: "A taxa de fotossíntese aumenta gradativamente, produzindo oxigênio e glicose em níveis saudáveis.", expl: "A quantidade ideal de luz otimiza a atividade dos cloroplastos sem queimar as estruturas foliares." },
+    { cond: "calor extremo sob sol escaldante", effect: "Os estômatos se fecham para evitar desidratação, reduzindo a absorção de CO₂ e travando a fotossíntese.", expl: "O fechamento estomático protege a planta contra perda de água por transpiração, mas restringe a entrada do carbono." },
+    { cond: "solo encharcado sem drenagem", effect: "As raízes perdem oxigênio e apodrecem, impedindo o transporte de seiva bruta para as folhas.", expl: "Sem respiração celular nas raízes, a planta perde a capacidade de absorver água, murchando mesmo com solo molhado." }
+  ];
+
+  for (const species of speciesList) {
+    for (let i = 0; i < conditions.length; i++) {
+      const correct = conditions[i];
+      const incorrect1 = conditions[(i + 1) % conditions.length];
+      const incorrect2 = conditions[(i + 2) % conditions.length];
+      const incorrect3 = conditions[(i + 3) % conditions.length];
+
+      generated.push({
+        id: currentId++,
+        question: `Considerando o processo de fotossíntese em um vaso de **${species}**, o que ocorre biologicamente se a planta for mantida sob **${correct.cond}**?`,
+        options: [
+          `${incorrect1.effect}`,
+          `${incorrect2.effect}`,
+          `${incorrect3.effect}`,
+          `${correct.effect}`
+        ],
+        answerIndex: 3,
+        explanation: `Sob ${correct.cond}, o efeito é: ${correct.effect} Motivo: ${correct.expl}`
+      });
+    }
+  }
+
+  // 4. Composting Elements (6 materials * 10 scenarios = 60 questions)
+  const compostMaterials = [
+    { mat: "serragem grossa ou folhas secas", role: "Matéria seca rica em carbono", result: "Equilibra a umidade e fornece estrutura e carbono para os microrganismos." },
+    { mat: "restos crus de cenoura e banana", role: "Matéria úmida rica em nitrogênio", result: "Serve de fonte rápida de energia e nitrogênio para as bactérias decomporem o composto." },
+    { mat: "carnes cozidas e gordura animal", role: "Resíduos não recomendados", result: "Causam mau cheiro forte na decomposição anaeróbia e atraem moscas e roedores." },
+    { mat: "cascas de limão ou temperos com sal", role: "Resíduos inibidores", result: "Prejudicam as minhocas e diminuem a atividade das bactérias devido à acidez/salinidade." },
+    { mat: "cascas de ovos limpas e moídas", role: "Enriquecedor mineral", result: "Adiciona cálcio ao composto final, reduzindo a acidez e fortalecendo as paredes celulares das futuras plantas." },
+    { mat: "papel de jornal e papelão picado sem tinta colorida", role: "Matéria seca alternativa", result: "Substitui as folhas secas fornecendo carbono, desde que não contenham metais pesados das tintas." }
+  ];
+
+  for (let s = 1; s <= 10; s++) {
+    for (let i = 0; i < compostMaterials.length; i++) {
+      const correct = compostMaterials[i];
+      const incorrect1 = compostMaterials[(i + 1) % compostMaterials.length];
+      const incorrect2 = compostMaterials[(i + 2) % compostMaterials.length];
+      const incorrect3 = compostMaterials[(i + 3) % compostMaterials.length];
+
+      generated.push({
+        id: currentId++,
+        question: `No projeto de compostagem escolar (Grupo ${s}), ao adicionar **${correct.mat}**, qual é o papel biológico e o resultado esperado no adubo?`,
+        options: [
+          `${correct.role}: ${correct.result}`,
+          `${incorrect1.role}: ${incorrect1.result}`,
+          `${incorrect2.role}: ${incorrect2.result}`,
+          `${incorrect3.role}: ${incorrect3.result}`
+        ],
+        answerIndex: 0,
+        explanation: `A adição de ${correct.mat} funciona como: ${correct.role}. O impacto direto é que ela ${correct.result}`
+      });
+    }
+  }
+
+  // 5. Soil Types and Adaptation (5 soil types * 10 species = 50 questions)
+  const soils = [
+    { type: "Solo Humífero (rico em húmus)", property: "Excelente retenção de umidade, ótima aeração e abundância de nutrientes orgânicos.", ideal: true },
+    { type: "Solo Arenoso (predomínio de areia)", property: "Drena a água muito rapidamente, secando rápido e retendo poucos nutrientes solúveis.", ideal: false },
+    { type: "Solo Argiloso (predomínio de argila)", property: "Retém muita água ficando encharcado facilmente, compacta-se quando seco dificultando o crescimento das raízes.", ideal: false },
+    { type: "Solo Calcário (rico em cálcio/carbonatos)", property: "Solo mais básico, seca rapidamente e pode bloquear a absorção de ferro em algumas espécies.", ideal: false },
+    { type: "Mistura com Fibra de Coco e Vermiculita", property: "Substrato leve que mantém umidade ideal, não compacta e facilita a expansão de raízes jovens.", ideal: true }
+  ];
+
+  for (const species of speciesList) {
+    for (let i = 0; i < soils.length; i++) {
+      const correct = soils[i];
+      const incorrect1 = soils[(i + 1) % soils.length];
+      const incorrect2 = soils[(i + 2) % soils.length];
+      const incorrect3 = soils[(i + 3) % soils.length];
+
+      generated.push({
+        id: currentId++,
+        question: `Para garantir o desenvolvimento saudável do sistema radicular do **${species}** em vaso, o que se deve esperar ao utilizar um **${correct.type}**?`,
+        options: [
+          `Incorreto: Esse solo é classificado como tóxico para qualquer planta.`,
+          `Incorreto: Ele bloqueia completamente a entrada de água.`,
+          `Correto: Caracteriza-se por apresentar ${correct.property}`,
+          `Incorreto: Esse substrato acelera o envelhecimento precoce das flores.`
+        ],
+        answerIndex: 2,
+        explanation: `O ${correct.type} possui propriedades físicas específicas: ${correct.property} Conhecer isso ajuda o aluno a regular as regas e a adubação.`
+      });
+    }
+  }
+
+  // 6. Growth Stages & Anatomy (5 anatomical parts * 10 species = 50 questions)
+  const anatomy = [
+    { part: "Xilema", role: "Transporta água e sais minerais (seiva bruta) das raízes até as folhas." },
+    { part: "Floema", role: "Transporta a glicose produzida na fotossíntese (seiva elaborada) das folhas para o restante da planta." },
+    { part: "Cloroplasto", role: "Organela celular que abriga a clorofila e onde ocorrem as fases da fotossíntese." },
+    { part: "Clorofila", role: "Pigmento fotorreceptor verde capaz de converter energia luminosa em energia química." },
+    { part: "Mitocôndria", role: "Organela responsável pela respiração celular da planta, liberando energia a partir da quebra da glicose." }
+  ];
+
+  for (const species of speciesList) {
+    for (let i = 0; i < anatomy.length; i++) {
+      const correct = anatomy[i];
+      const incorrect1 = anatomy[(i + 1) % anatomy.length];
+      const incorrect2 = anatomy[(i + 2) % anatomy.length];
+      const incorrect3 = anatomy[(i + 3) % anatomy.length];
+
+      generated.push({
+        id: currentId++,
+        question: `Ao estudar a anatomia e fisiologia do pé de **${species}** na aula de ciências, qual o papel específico do(a) **${correct.part}** no metabolismo vegetal?`,
+        options: [
+          `Ele(a) ${incorrect1.role}`,
+          `Ele(a) ${correct.role}`,
+          `Ele(a) ${incorrect2.role}`,
+          `Ele(a) ${incorrect3.role}`
+        ],
+        answerIndex: 1,
+        explanation: `O(A) ${correct.part} desempenha um papel chave na planta: ${correct.role}`
+      });
+    }
+  }
+
+  // 7. Temperature & Humidity Combinations (10 species * 6 temps * 5 humidities = 300 questions)
+  for (const species of speciesList) {
+    for (let temp = 15; temp <= 40; temp += 5) {
+      for (let humidity = 20; humidity <= 80; humidity += 15) {
+        let questionText = "";
+        let options = [];
+        let ansIdx = 0;
+        let explText = "";
+
+        if (temp >= 35) {
+          questionText = `No cultivo de **${species}**, em um dia de calor de **${temp}°C** e umidade do ar baixa em **${humidity}%**, o que a plântula fará para sobreviver?`;
+          options = [
+            "Ela abrirá todos os estômatos para refrigerar as folhas, acelerando o crescimento.",
+            "Ela fechará os estômatos para evitar a perda de água, o que reduz temporariamente a taxa de fotossíntese.",
+            "Ela desviarará toda a seiva bruta para as flores, secando as folhas basais.",
+            "Ela iniciará a germinação de novas sementes ao seu redor para proteção térmica."
+          ];
+          ansIdx = 1;
+          explText = "Em condições de calor extremo e baixa umidade, a planta fecha os estômatos para evitar a desidratação (morte por murchamento), mas isso restringe a entrada de CO₂, desacelerando a fotossíntese.";
+        } else if (temp <= 20) {
+          questionText = `Em um ambiente com temperatura média de **${temp}°C** e alta umidade de **${humidity}%**, qual o principal cuidado no cultivo de **${species}**?`;
+          options = [
+            "Regar mais vezes ao dia, pois o frio acelera a evaporação.",
+            "Deixar o vaso na sombra completa para evitar queimaduras frias.",
+            "Espaçar as regas para evitar o acúmulo excessivo de umidade e proliferação de fungos nas raízes.",
+            "Adicionar sal ao solo para aumentar a temperatura radicular."
+          ];
+          ansIdx = 2;
+          explText = "Temperaturas mais amenas e alta umidade reduzem a taxa de evaporação da água no vaso. Regar em excesso nessas condições pode encharcar o solo e apodrecer as raízes.";
+        } else {
+          questionText = `Com clima ideal de **${temp}°C** e umidade equilibrada em **${humidity}%**, o que maximiza o crescimento saudável do pé de **${species}**?`;
+          options = [
+            "Fornecer iluminação solar indireta ou direta ideal e manter a terra com a umidade de uma esponja úmida.",
+            "Encharcar o vaso diariamente até cobrir o caule com água.",
+            "Utilizar apenas adubos químicos altamente concentrados sem matéria seca.",
+            "Evitar qualquer circulação de ar ao redor das folhas."
+          ];
+          ansIdx = 0;
+          explText = "A temperatura de 25°C a 30°C com umidade moderada é a faixa ideal para a maioria das hortaliças escolares, permitindo máxima eficiência estomática.";
+        }
+
+        generated.push({
+          id: currentId++,
+          question: questionText,
+          options: options,
+          answerIndex: ansIdx,
+          explanation: explText
+        });
+      }
+    }
+  }
+
+  return generated;
+}
+
+// Mesclar as 40 perguntas estáticas estruturadas com as 600 geradas combinatorialmente
+export const quizQuestions = [
+  ...staticQuizQuestions,
+  ...generateCombinatorialQuestions()
 ];
 
