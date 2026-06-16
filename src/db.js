@@ -759,6 +759,21 @@ export function getLeaderboard(currentUser) {
   return [...filteredUsers].sort((a, b) => b.points - a.points);
 }
 
+// Buscar ranking atualizado do servidor Supabase
+export async function fetchLeaderboard(currentUser) {
+  if (supabase) {
+    try {
+      const { data: users, error } = await supabase.from('users').select('*');
+      if (!error && users) {
+        localStorage.setItem('cultiva_users', JSON.stringify(normalizeDbObject(users)));
+      }
+    } catch (err) {
+      console.warn('[Supabase Leaderboard] Erro ao buscar:', err);
+    }
+  }
+  return getLeaderboard(currentUser);
+}
+
 // Atribuir Pontuação para um Aluno
 export function awardPoints(studentEmail, amount, studentName) {
   const users = getUsers();

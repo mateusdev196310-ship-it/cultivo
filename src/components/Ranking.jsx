@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Medal, Award, User, RefreshCw } from 'lucide-react';
-import { getLeaderboard, getTurmas } from '../db';
+import { getLeaderboard, getTurmas, fetchLeaderboard } from '../db';
 
 export default function Ranking({ currentUser }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [turmaName, setTurmaName] = useState('');
 
-  const loadRanking = () => {
+  const loadRanking = async () => {
+    // 1. Carrega o ranking local imediatamente (rápido)
     setLeaderboard(getLeaderboard(currentUser));
+    
+    // 2. Busca o ranking atualizado diretamente do Supabase e atualiza o estado
+    const freshRanking = await fetchLeaderboard(currentUser);
+    setLeaderboard(freshRanking);
     
     // Obter nome da turma se o usuário tiver uma
     if (currentUser && !currentUser.isAdmin && currentUser.turmaId) {
