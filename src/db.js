@@ -11,6 +11,35 @@ export function getTodayDateBR() {
   return `${day}/${month}/${year}`;
 }
 
+export async function getBrasiliaDate() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch('https://worldtimeapi.org/api/timezone/America/Sao_Paulo', { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.datetime) {
+        const datePart = data.datetime.split('T')[0];
+        const [year, month, day] = datePart.split('-');
+        return `${day}/${month}/${year}`;
+      }
+    }
+  } catch (e) {
+    console.warn("[BrasiliaTime] Falha ao obter horário da internet, usando fallback local:", e);
+  }
+  try {
+    const now = new Date();
+    const spString = now.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const datePart = spString.split(',')[0];
+    return datePart.trim();
+  } catch (e) {
+    return getTodayDateBR();
+  }
+}
+
+
 export function formatDateBR(dateStr) {
   if (!dateStr) return '';
   if (dateStr.includes('/')) return dateStr;

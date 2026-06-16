@@ -1,10 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Award, HelpCircle, Trophy, Check, X, ArrowRight, Sparkles, Play } from 'lucide-react';
 import { quizQuestions } from '../data/mockData';
-import { awardPoints, getTodayDateBR } from '../db';
+import { awardPoints, getTodayDateBR, getBrasiliaDate } from '../db';
+
+// Algoritmo Fisher-Yates para embaralhamento perfeito e aleatório das questões
+function shuffleQuestions(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
   const [quizState, setQuizState] = useState(null);
+  const [brasiliaDate, setBrasiliaDate] = useState(null);
+
+  // Carregar o fuso horário de Brasília da internet
+  useEffect(() => {
+    let active = true;
+    const loadDate = async () => {
+      const dateStr = await getBrasiliaDate();
+      if (active) {
+        setBrasiliaDate(dateStr);
+      }
+    };
+    loadDate();
+    return () => { active = false; };
+  }, [user?.email]);
 
   // Carregar ou inicializar o quiz do localStorage ao montar ou mudar de usuário
   useEffect(() => {
@@ -22,8 +46,8 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
         console.warn("[EcoQuiz] Falha ao recuperar estado do quiz:", e);
       }
     }
-    // Caso não exista, gera um novo quiz padrão (não iniciado)
-    const shuffled = [...quizQuestions].sort(() => 0.5 - Math.random());
+    // Caso não exista, gera um novo quiz padrão embaralhado
+    const shuffled = shuffleQuestions(quizQuestions);
     const selected = shuffled.slice(0, 5);
     setQuizState({
       id: 'quiz-' + Date.now(),
@@ -46,24 +70,23 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
     localStorage.setItem(key, JSON.stringify(quizState));
   }, [quizState, user?.email]);
 
-  // Função para verificar se o limite diário de 2 quizzes já foi atingido
-  const checkDailyLimitReached = () => {
-    if (!user || user.isAdmin) return false;
-    const todayStr = getTodayDateBR();
+  // Obter a quantidade de quizzes concluídos hoje
+  const getDailyQuizCount = () => {
+    if (!user || user.isAdmin || !brasiliaDate) return 0;
     const countKey = `cultiva_quiz_daily_count_${user.email.trim().toLowerCase()}`;
     const dailyDataRaw = localStorage.getItem(countKey);
     if (dailyDataRaw) {
       try {
         const parsed = JSON.parse(dailyDataRaw);
-        if (parsed && parsed.date === todayStr && parsed.count >= 2) {
-          return true;
+        if (parsed && parsed.date === brasiliaDate) {
+          return parsed.count || 0;
         }
       } catch (e) {}
     }
-    return false;
+    return 0;
   };
 
-  if (!quizState) {
+  if (!quizState || !brasiliaDate) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 0' }}>
         <div className="spinner-mini" style={{ borderTopColor: 'var(--primary)', width: 30, height: 30 }} />
@@ -71,10 +94,12 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
     );
   }
 
+  const dailyCount = getDailyQuizCount();
+  const limitReached = dailyCount >= 2;
   const currentQuestion = quizState.questions[quizState.currentIdx];
 
   const handleStart = () => {
-    if (quizState.completed || checkDailyLimitReached()) return;
+    if (quizState.completed || limitReached) return;
     setQuizState(prev => ({
       ...prev,
       started: true,
@@ -134,23 +159,22 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
             points,
             user.name,
             'quiz',
-            'EcoQuiz 🌱',
-            `Completou o quiz com ${totalCorrect}/5 acertos (+${points} XP)`
+            `EcoQuiz ${dailyCount + 1}/2 🌱`,
+            `Acertou ${totalCorrect} de 5 questões no EcoQuiz (${dailyCount + 1}/2)`
           );
           if (onUpdateUserPoints) {
             onUpdateUserPoints(updated.points);
           }
           newState.hasAwarded = true;
 
-          // Registrar incremento no contador diário
-          const todayStr = getTodayDateBR();
+          // Registrar incremento no contador diário usando o fuso de Brasília
           const countKey = `cultiva_quiz_daily_count_${user.email.trim().toLowerCase()}`;
           const dailyDataRaw = localStorage.getItem(countKey);
-          let dailyData = { date: todayStr, count: 0 };
+          let dailyData = { date: brasiliaDate, count: 0 };
           if (dailyDataRaw) {
             try {
               const parsed = JSON.parse(dailyDataRaw);
-              if (parsed && parsed.date === todayStr) {
+              if (parsed && parsed.date === brasiliaDate) {
                 dailyData = parsed;
               }
             } catch (e) {}
@@ -164,13 +188,13 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
     }
   };
 
-  // Gerar um novo quiz simulando IA (pega 5 perguntas aleatórias do pool)
+  // Gerar um novo quiz usando o embaralhamento Fisher-Yates
   const handleGenerateNewQuiz = () => {
-    if (checkDailyLimitReached()) {
+    if (limitReached) {
       alert("Você já atingiu o limite de 2 quizzes hoje!");
       return;
     }
-    const shuffled = [...quizQuestions].sort(() => 0.5 - Math.random());
+    const shuffled = shuffleQuestions(quizQuestions);
     const selected = shuffled.slice(0, 5);
     setQuizState({
       id: 'quiz-' + Date.now(),
@@ -186,11 +210,9 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
     });
   };
 
-  const limitReached = checkDailyLimitReached();
-
   return (
     <div className="quiz-container">
-      {/* 1. TELA INICIAL (Ainda não jogou ou reabriu a aba) */}
+      {/* 1. TELA INICIAL (Não iniciado) */}
       {!quizState.started && !quizState.completed && (
         <div className="quiz-start-screen card-nature text-center animate-fade-in">
           <div className="quiz-badge-icon">
@@ -225,12 +247,12 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
                 🔒 Limite Diário Atingido!
               </p>
               <p style={{ fontSize: '12px', color: '#5d4037', margin: '4px 0 0 0', lineHeight: '1.4' }}>
-                Você já concluiu seus 2 quizzes de hoje. Volte amanhã para novos desafios ecológicos e acumular mais XP! 🌱
+                Você concluiu os 2 quizzes de hoje! Novas questões serão liberadas amanhã. Aproveite para cuidar do seu plantio ou comentar no feed! 🌱
               </p>
             </div>
           ) : (
             <button className="btn btn-primary btn-block" onClick={handleStart}>
-              Começar Desafio <Play size={16} fill="currentColor" />
+              {dailyCount === 0 ? "Fazer Quiz 1/2" : "Fazer Quiz 2/2"} <Play size={16} fill="currentColor" />
             </button>
           )}
         </div>
@@ -324,7 +346,7 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
         </div>
       )}
 
-      {/* 3. TELA DE RESULTADOS / QUIZ COMPLETADO (Inacessível direto) */}
+      {/* 3. TELA DE RESULTADOS / QUIZ COMPLETADO (Bloqueado) */}
       {quizState.completed && (
         <div className="quiz-result-screen card-nature text-center animate-fade-in">
           <div className="result-badge">
@@ -384,7 +406,7 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
                 🔒 Limite Diário Atingido!
               </p>
               <p style={{ fontSize: '12px', color: '#5d4037', margin: '4px 0 0 0', lineHeight: '1.4' }}>
-                Você já concluiu seus 2 quizzes de hoje. Volte amanhã para novos desafios ecológicos e acumular mais XP! 🌱
+                Você concluiu os 2 quizzes de hoje! Novas questões serão liberadas amanhã. Aproveite para cuidar do seu plantio ou comentar no feed! 🌱
               </p>
             </div>
           ) : (
@@ -396,7 +418,7 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
               border: '1.5px dashed var(--primary)'
             }}>
               <p style={{ fontSize: '12px', color: 'var(--primary-dark)', margin: 0, fontWeight: 500 }}>
-                🔒 <strong>Quiz concluído!</strong> Para ganhar mais XP e continuar jogando, gere um novo conjunto de perguntas.
+                🔒 <strong>Primeiro quiz concluído!</strong> Você ainda pode fazer mais um quiz hoje para acumular pontos.
               </p>
             </div>
           )}
@@ -408,7 +430,7 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
                 boxShadow: '0 4px 14px rgba(46,125,50,0.3)',
                 fontWeight: 700
               }}>
-                <Sparkles size={16} style={{ marginRight: 4 }} /> Gerar Novo Quiz (IA)
+                <Sparkles size={16} style={{ marginRight: 4 }} /> Gerar Quiz 2/2 (IA)
               </button>
             )}
             <button className="btn btn-secondary btn-block" onClick={onGoToRanking}>
