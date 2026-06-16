@@ -118,57 +118,115 @@ export function analyzePlantStage(species, day) {
   }
 }
 
+// Limpar dados locais de um usuário específico (quando deletado do Supabase)
+export function clearLocalUserData(email) {
+  if (!email) return;
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Remover da lista de usuários
+  let users = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+  users = users.filter(u => (u.email || '').trim().toLowerCase() !== cleanEmail);
+  localStorage.setItem('cultiva_users', JSON.stringify(users));
+
+  // 2. Remover plantas
+  let plants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+  plants = plants.filter(p => (p.studentEmail || '').trim().toLowerCase() !== cleanEmail);
+  localStorage.setItem('cultiva_plants', JSON.stringify(plants));
+
+  // 3. Remover posts
+  let posts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+  posts = posts.filter(p => (p.studentEmail || '').trim().toLowerCase() !== cleanEmail);
+  localStorage.setItem('cultiva_posts', JSON.stringify(posts));
+
+  // 4. Remover feedbacks
+  let feedbacks = JSON.parse(localStorage.getItem('cultiva_feedback') || '[]');
+  feedbacks = feedbacks.filter(f => (f.email || '').trim().toLowerCase() !== cleanEmail);
+  localStorage.setItem('cultiva_feedback', JSON.stringify(feedbacks));
+
+  // 5. Remover sessão se for o próprio usuário logado
+  const session = localStorage.getItem('cultiva_user');
+  if (session) {
+    const parsed = JSON.parse(session);
+    if ((parsed.email || '').trim().toLowerCase() === cleanEmail) {
+      localStorage.removeItem('cultiva_user');
+    }
+  }
+}
+
 // Função auxiliar para sincronizar dados criados/atualizados offline para o Supabase
 export async function syncLocalToSupabase() {
   if (!supabase) return;
   console.log('[Cultiva Sync] Verificando dados offline para sincronizar com Supabase...');
 
   try {
-    // 1. Sincronizar usuários criados/atualizados offline
-    const localUsers = normalizeDbObject(JSON.parse(localStorage.getItem('cultiva_users') || '[]'));
-    const { data: serverUsers, error: errUsers } = await supabase.from('users').select('*');
-    if (!errUsers && serverUsers) {
-      const normalizedServerUsers = normalizeDbObject(serverUsers);
-      for (const localUser of localUsers) {
-        const serverUser = normalizedServerUsers.find(u => u.email === localUser.email);
-        if (!serverUser) {
-          console.log(`[Cultiva Sync] Cadastrando usuário offline no Supabase: ${localUser.email}`);
-          await supabase.from('users').insert([localUser]);
-        } else if (
-          localUser.points > serverUser.points ||
-          localUser.password !== serverUser.password ||
-          localUser.turmaId !== serverUser.turmaId
+    const loggedInUserStr = localStorage.getItem('cultiva_user');
+    if (!loggedInUserStr) {
+      console.log('[Cultiva Sync] Nenhum usuário logado. Sincronização offline ignorada.');
+      return;
+    }
+    
+    const localUser = normalizeDbObject(JSON.parse(loggedInUserStr));
+    const cleanEmail = localUser.email?.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    // 1. Sincronizar apenas o próprio usuário logado
+    const { data: serverUser, error: errUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (!errUser) {
+      if (!serverUser) {
+        // Se o usuário logado não existe no Supabase, significa que foi excluído pelo administrador.
+        // Devemos limpar os dados locais e deslogar.
+        console.log(`[Cultiva Sync] Usuário ${cleanEmail} não existe no Supabase. Limpando dados locais.`);
+        clearLocalUserData(cleanEmail);
+        return; // interrompe a sincronização
+      } else {
+        const normalizedServerUser = normalizeDbObject(serverUser);
+        if (
+          localUser.points > normalizedServerUser.points ||
+          localUser.password !== normalizedServerUser.password ||
+          localUser.turmaId !== normalizedServerUser.turmaId
         ) {
-          console.log(`[Cultiva Sync] Atualizando pontuação/senha/turma offline no Supabase: ${localUser.email}`);
+          console.log(`[Cultiva Sync] Atualizando pontuação/senha/turma do usuário logado no Supabase: ${localUser.email}`);
           await supabase.from('users').update({
-            points: localUser.points,
-            password: localUser.password,
-            turmaId: localUser.turmaId
+            points: Math.max(localUser.points, normalizedServerUser.points),
+            password: localUser.password || normalizedServerUser.password,
+            turmaId: localUser.turmaId || normalizedServerUser.turmaId
           }).eq('email', localUser.email);
         }
       }
     }
 
-    // 2. Sincronizar turmas criadas offline
-    const localTurmas = JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
-    const { data: serverTurmas, error: errTurmas } = await supabase.from('turmas').select('*');
-    if (!errTurmas && serverTurmas) {
-      const normalizedServerTurmas = normalizeDbObject(serverTurmas);
-      for (const localTurma of localTurmas) {
-        const exists = normalizedServerTurmas.some(t => t.id === localTurma.id);
-        if (!exists) {
-          console.log(`[Cultiva Sync] Enviando turma offline para o Supabase: ${localTurma.nome}`);
-          await supabase.from('turmas').insert([localTurma]);
+    // 2. Sincronizar turmas criadas offline (apenas se o usuário logado for ADM)
+    if (localUser.isAdmin) {
+      const localTurmas = JSON.parse(localStorage.getItem('cultiva_turmas') || '[]');
+      const { data: serverTurmas, error: errTurmas } = await supabase.from('turmas').select('*');
+      if (!errTurmas && serverTurmas) {
+        const normalizedServerTurmas = normalizeDbObject(serverTurmas);
+        for (const localTurma of localTurmas) {
+          const exists = normalizedServerTurmas.some(t => t.id === localTurma.id);
+          if (!exists) {
+            console.log(`[Cultiva Sync] Enviando turma offline para o Supabase: ${localTurma.nome}`);
+            await supabase.from('turmas').insert([localTurma]);
+          }
         }
       }
     }
 
-    // 3. Sincronizar plantas e seu histórico de fotos
+    // 3. Sincronizar plantas e seu histórico de fotos da própria conta
     const localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
-    const { data: serverPlants, error: errPlants } = await supabase.from('plants').select('*');
+    const myLocalPlants = localPlants.filter(p => (p.studentEmail || '').trim().toLowerCase() === cleanEmail);
+    const { data: serverPlants, error: errPlants } = await supabase
+      .from('plants')
+      .select('*')
+      .eq('studentEmail', cleanEmail);
+
     if (!errPlants && serverPlants) {
       const normalizedServerPlants = normalizeDbObject(serverPlants);
-      for (const localPlant of localPlants) {
+      for (const localPlant of myLocalPlants) {
         const serverPlant = normalizedServerPlants.find(p => p.id === localPlant.id);
         if (!serverPlant) {
           console.log(`[Cultiva Sync] Enviando nova planta offline para o Supabase: ${localPlant.name}`);
@@ -180,12 +238,17 @@ export async function syncLocalToSupabase() {
       }
     }
 
-    // 4. Sincronizar posts do feed
+    // 4. Sincronizar posts do feed da própria conta
     const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-    const { data: serverPosts, error: errPosts } = await supabase.from('posts').select('*');
+    const myLocalPosts = localPosts.filter(p => (p.studentEmail || '').trim().toLowerCase() === cleanEmail);
+    const { data: serverPosts, error: errPosts } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('studentEmail', cleanEmail);
+
     if (!errPosts && serverPosts) {
       const normalizedServerPosts = normalizeDbObject(serverPosts);
-      for (const localPost of localPosts) {
+      for (const localPost of myLocalPosts) {
         const exists = normalizedServerPosts.some(p => p.id === localPost.id);
         if (!exists) {
           console.log(`[Cultiva Sync] Enviando post do feed offline para o Supabase: ${localPost.id}`);
@@ -194,12 +257,17 @@ export async function syncLocalToSupabase() {
       }
     }
 
-    // 5. Sincronizar feedbacks de aula
+    // 5. Sincronizar feedbacks de aula da própria conta
     const localFeedback = JSON.parse(localStorage.getItem('cultiva_feedback') || '[]');
-    const { data: serverFeedback, error: errFeedback } = await supabase.from('feedback').select('*');
+    const myLocalFeedback = localFeedback.filter(f => (f.email || '').trim().toLowerCase() === cleanEmail);
+    const { data: serverFeedback, error: errFeedback } = await supabase
+      .from('feedback')
+      .select('*')
+      .eq('email', cleanEmail);
+
     if (!errFeedback && serverFeedback) {
       const normalizedServerFeedback = normalizeDbObject(serverFeedback);
-      for (const localFb of localFeedback) {
+      for (const localFb of myLocalFeedback) {
         const exists = normalizedServerFeedback.some(f => f.email === localFb.email);
         if (!exists) {
           console.log(`[Cultiva Sync] Enviando feedback offline para o Supabase: ${localFb.email}`);
@@ -219,42 +287,47 @@ export async function syncLocalToSupabase() {
 
 // Inicializar banco de dados no LocalStorage se não existir
 export async function initDb(forceSync = false) {
-  // Remover dados de teste de mateus9811sc3@gmail.com para evitar ressincronização indesejada
+  // Remover dados de teste para evitar ressincronização indesejada
   if (forceSync) {
-    const testEmail = 'mateus9811sc3@gmail.com';
-    
+    const isTestUser = (email, name) => {
+      const e = (email || '').toLowerCase().trim();
+      const n = (name || '').toLowerCase().trim();
+      return e.includes('test') || e.includes('teste') || n === 'test' || n === 'teste' || e === 'mateus9811sc3@gmail.com' || e === 'leveday.oficial@gmail.com';
+    };
+
     let localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
-    if (localUsers.some(u => u.email === testEmail)) {
-      localUsers = localUsers.filter(u => u.email !== testEmail);
+    const testUsers = localUsers.filter(u => isTestUser(u.email, u.name));
+    if (testUsers.length > 0) {
+      localUsers = localUsers.filter(u => !isTestUser(u.email, u.name));
       localStorage.setItem('cultiva_users', JSON.stringify(localUsers));
+      console.log(`[Cultiva Cleanup] Removidos ${testUsers.length} usuários locais de teste.`);
+      
+      if (supabase) {
+        Promise.all(testUsers.map(async (tu) => {
+          console.log(`[Cultiva Cleanup] Removendo usuário de teste do Supabase: ${tu.email}`);
+          await supabase.from('users').delete().eq('email', tu.email);
+        })).catch(err => console.warn('[Cultiva Cleanup] Erro ao deletar no Supabase:', err));
+      }
     }
-    
+
     let localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
-    if (localPlants.some(p => p.studentEmail === testEmail)) {
-      localPlants = localPlants.filter(p => p.studentEmail !== testEmail);
+    if (localPlants.some(p => isTestUser(p.studentEmail, p.studentName))) {
+      localPlants = localPlants.filter(p => !isTestUser(p.studentEmail, p.studentName));
       localStorage.setItem('cultiva_plants', JSON.stringify(localPlants));
     }
-    
+
     let localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-    if (localPosts.some(p => p.studentEmail === testEmail)) {
-      localPosts = localPosts.filter(p => p.studentEmail !== testEmail);
+    if (localPosts.some(p => isTestUser(p.studentEmail, p.studentName))) {
+      localPosts = localPosts.filter(p => !isTestUser(p.studentEmail, p.studentName));
       localStorage.setItem('cultiva_posts', JSON.stringify(localPosts));
     }
 
     const session = localStorage.getItem('cultiva_user');
     if (session) {
       const parsed = JSON.parse(session);
-      if (parsed.email === testEmail) {
+      if (isTestUser(parsed.email, parsed.name)) {
         localStorage.removeItem('cultiva_user');
       }
-    }
-
-    if (supabase) {
-      supabase.from('users').delete().eq('email', testEmail).then(({ error }) => {
-        if (!error) {
-          console.log(`[Cultiva Cleanup] Usuário de teste ${testEmail} e dependências excluídos com sucesso do Supabase.`);
-        }
-      });
     }
   }
 
@@ -664,10 +737,26 @@ export async function updateUsersTurma(turmaId, studentEmails) {
 }
 
 // Obter Ranking Leaderboard
-export function getLeaderboard() {
+export function getLeaderboard(currentUser) {
   const users = getUsers();
+  
+  // Filtrar usuários do ranking
+  const filteredUsers = users.filter(u => {
+    // 1. Nunca mostrar administradores no ranking
+    if (u.isAdmin) return false;
+    
+    // 2. Se o usuário atual estiver logado, não for administrador, e tiver turmaId,
+    // mostrar apenas os alunos da mesma turma
+    if (currentUser && !currentUser.isAdmin && currentUser.turmaId) {
+      return u.turmaId === currentUser.turmaId;
+    }
+    
+    // 3. Caso contrário, mostra todos os usuários normais (não-administradores)
+    return true;
+  });
+
   // Ordena por pontuação de forma decrescente
-  return [...users].sort((a, b) => b.points - a.points);
+  return [...filteredUsers].sort((a, b) => b.points - a.points);
 }
 
 // Atribuir Pontuação para um Aluno

@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Medal, Award, User, RefreshCw } from 'lucide-react';
-import { getLeaderboard } from '../db';
+import { getLeaderboard, getTurmas } from '../db';
 
 export default function Ranking({ currentUser }) {
   const [leaderboard, setLeaderboard] = useState([]);
+  const [turmaName, setTurmaName] = useState('');
 
   const loadRanking = () => {
-    setLeaderboard(getLeaderboard());
+    setLeaderboard(getLeaderboard(currentUser));
+    
+    // Obter nome da turma se o usuário tiver uma
+    if (currentUser && !currentUser.isAdmin && currentUser.turmaId) {
+      const turmas = getTurmas();
+      const myTurma = turmas.find(t => t.id === currentUser.turmaId);
+      if (myTurma) {
+        setTurmaName(myTurma.nome);
+      }
+    }
   };
 
   useEffect(() => {
@@ -29,7 +39,7 @@ export default function Ranking({ currentUser }) {
       <div className="ranking-header-section">
         <div className="section-header-refresh">
           <div>
-            <h2>Classificação Geral</h2>
+            <h2>{turmaName ? `Classificação - ${turmaName}` : 'Classificação Geral'}</h2>
             <p className="subtitle">Mantenha suas plantas ativas e acerte quizzes para subir de nível!</p>
           </div>
           <button onClick={loadRanking} className="btn-refresh" title="Atualizar Ranking">

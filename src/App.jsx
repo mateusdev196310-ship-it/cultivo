@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sprout, User, Shield, Bell, BellOff } from 'lucide-react';
-import { initDb, checkInactivityPenalties, normalizeDbObject } from './db';
+import { initDb, checkInactivityPenalties, normalizeDbObject, clearLocalUserData } from './db';
 import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import Navbar from './components/Navbar';
@@ -108,6 +108,10 @@ export default function App() {
             localStorage.setItem('cultiva_user', JSON.stringify(updated));
             console.log('[App Sync] Perfil do usuário atualizado a partir do banco:', updated);
           }
+        } else {
+          console.log('[App Sync] Perfil não encontrado no banco. Efetuando logout automático.');
+          clearLocalUserData(cleanEmail);
+          setUser(null);
         }
       } catch (err) {
         console.warn('[App Sync] Falha ao sincronizar perfil do usuário:', err);
