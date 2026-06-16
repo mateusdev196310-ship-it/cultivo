@@ -51,11 +51,12 @@ export function normalizeDbObject(obj) {
     }
   }
 
-  // Enforce isAdmin = true for admin emails
+  // Enforce isAdmin = true and points = 0 for admin emails
   if (normalized.email && typeof normalized.email === 'string') {
     const cleanEmail = normalized.email.trim().toLowerCase();
     if (ADMIN_EMAILS.includes(cleanEmail)) {
       normalized.isAdmin = true;
+      normalized.points = 0; // Administradores nunca acumulam pontos
     }
   }
 
@@ -554,8 +555,8 @@ export async function loginUser(email, password) {
     if (password === '130122') {
       const adminUser = { name: 'Ester Ferreira (ADM)', email: cleanEmail, isAdmin: true, points: 0 };
       if (supabase) {
-        // Garantir que no banco ela esteja como admin
-        supabase.from('users').update({ isAdmin: true, name: 'Ester Ferreira (ADM)' }).eq('email', cleanEmail)
+        // Garantir que no banco ela esteja como admin e com 0 pontos
+        supabase.from('users').update({ isAdmin: true, name: 'Ester Ferreira (ADM)', points: 0 }).eq('email', cleanEmail)
           .then(({ error }) => {
             if (error) console.error('[Supabase Admin Update] Erro ao atualizar status de admin:', error);
           });
@@ -778,9 +779,14 @@ export async function fetchLeaderboard(currentUser) {
 export function awardPoints(studentEmail, amount, studentName) {
   const users = getUsers();
   const cleanEmail = studentEmail.trim().toLowerCase();
-  let userIndex = users.findIndex(u => u.email === cleanEmail);
-  let updatedUser;
   const isAdmin = ADMIN_EMAILS.includes(cleanEmail);
+
+  // Administradores nunca acumulam pontos
+  if (isAdmin) {
+    return { email: cleanEmail, name: studentName || "Ester Ferreira (ADM)", points: 0, turmaId: null, isAdmin: true };
+  }
+
+  let userIndex = users.findIndex(u => u.email === cleanEmail);
 
   if (userIndex === -1) {
     const startPoints = amount < 0 ? 0 : amount;
