@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Award, HelpCircle, Trophy, Check, X, ArrowRight, Sparkles, Play } from 'lucide-react';
 import { quizQuestions } from '../data/mockData';
-import { awardPoints } from '../db';
+import { awardPoints, getTodayDateBR } from '../db';
 
 export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
   const [quizState, setQuizState] = useState(null);
@@ -46,6 +46,23 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
     localStorage.setItem(key, JSON.stringify(quizState));
   }, [quizState, user?.email]);
 
+  // Função para verificar se o limite diário de 2 quizzes já foi atingido
+  const checkDailyLimitReached = () => {
+    if (!user || user.isAdmin) return false;
+    const todayStr = getTodayDateBR();
+    const countKey = `cultiva_quiz_daily_count_${user.email.trim().toLowerCase()}`;
+    const dailyDataRaw = localStorage.getItem(countKey);
+    if (dailyDataRaw) {
+      try {
+        const parsed = JSON.parse(dailyDataRaw);
+        if (parsed && parsed.date === todayStr && parsed.count >= 2) {
+          return true;
+        }
+      } catch (e) {}
+    }
+    return false;
+  };
+
   if (!quizState) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 0' }}>
@@ -57,7 +74,7 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
   const currentQuestion = quizState.questions[quizState.currentIdx];
 
   const handleStart = () => {
-    if (quizState.completed) return;
+    if (quizState.completed || checkDailyLimitReached()) return;
     setQuizState(prev => ({
       ...prev,
       started: true,
@@ -124,6 +141,22 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
             onUpdateUserPoints(updated.points);
           }
           newState.hasAwarded = true;
+
+          // Registrar incremento no contador diário
+          const todayStr = getTodayDateBR();
+          const countKey = `cultiva_quiz_daily_count_${user.email.trim().toLowerCase()}`;
+          const dailyDataRaw = localStorage.getItem(countKey);
+          let dailyData = { date: todayStr, count: 0 };
+          if (dailyDataRaw) {
+            try {
+              const parsed = JSON.parse(dailyDataRaw);
+              if (parsed && parsed.date === todayStr) {
+                dailyData = parsed;
+              }
+            } catch (e) {}
+          }
+          dailyData.count += 1;
+          localStorage.setItem(countKey, JSON.stringify(dailyData));
         }
 
         return newState;
@@ -133,6 +166,10 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
 
   // Gerar um novo quiz simulando IA (pega 5 perguntas aleatórias do pool)
   const handleGenerateNewQuiz = () => {
+    if (checkDailyLimitReached()) {
+      alert("Você já atingiu o limite de 2 quizzes hoje!");
+      return;
+    }
     const shuffled = [...quizQuestions].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 5);
     setQuizState({
@@ -149,13 +186,15 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
     });
   };
 
+  const limitReached = checkDailyLimitReached();
+
   return (
     <div className="quiz-container">
-      {/* 1. TELA INICIAL (Ainda não jogou) */}
+      {/* 1. TELA INICIAL (Ainda não jogou ou reabriu a aba) */}
       {!quizState.started && !quizState.completed && (
         <div className="quiz-start-screen card-nature text-center animate-fade-in">
           <div className="quiz-badge-icon">
-            <Trophy size={48} className="text-yellow" />
+            <Trophy size={48} className={limitReached ? "text-muted" : "text-yellow"} />
           </div>
           <h2>Desafio EcoQuiz 🌱</h2>
           <p className="quiz-intro-text">
@@ -167,14 +206,33 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
             <ul>
               <li>São <strong>5 perguntas</strong> de múltipla escolha.</li>
               <li>Cada resposta correta vale <strong>+20 pontos</strong>.</li>
+              <li>Limite diário: <strong>No máximo 2 quizzes por dia</strong>.</li>
               <li>Gabarito máximo: <strong>100 XP</strong> por rodada!</li>
               <li>Sua pontuação sobe direto para o <strong>Ranking Escolar</strong>!</li>
             </ul>
           </div>
 
-          <button className="btn btn-primary btn-block" onClick={handleStart}>
-            Começar Desafio <Play size={16} fill="currentColor" />
-          </button>
+          {limitReached ? (
+            <div style={{
+              margin: '20px 0',
+              padding: '16px',
+              backgroundColor: '#fff8e1',
+              borderRadius: 'var(--radius-md)',
+              border: '1.5px dashed #ffb300',
+              textAlign: 'left'
+            }}>
+              <p style={{ fontSize: '13px', color: '#b78103', margin: 0, fontWeight: 700 }}>
+                🔒 Limite Diário Atingido!
+              </p>
+              <p style={{ fontSize: '12px', color: '#5d4037', margin: '4px 0 0 0', lineHeight: '1.4' }}>
+                Você já concluiu seus 2 quizzes de hoje. Volte amanhã para novos desafios ecológicos e acumular mais XP! 🌱
+              </p>
+            </div>
+          ) : (
+            <button className="btn btn-primary btn-block" onClick={handleStart}>
+              Começar Desafio <Play size={16} fill="currentColor" />
+            </button>
+          )}
         </div>
       )}
 
@@ -313,26 +371,46 @@ export default function Quiz({ user, onUpdateUserPoints, onGoToRanking }) {
             </p>
           )}
 
-          <div style={{
-            margin: '20px 0',
-            padding: '12px',
-            backgroundColor: 'var(--primary-light)',
-            borderRadius: 'var(--radius-md)',
-            border: '1.5px dashed var(--primary)'
-          }}>
-            <p style={{ fontSize: '12px', color: 'var(--primary-dark)', margin: 0, fontWeight: 500 }}>
-              🔒 <strong>Quiz concluído!</strong> Para ganhar mais XP e continuar jogando, gere um novo conjunto de perguntas.
-            </p>
-          </div>
+          {limitReached ? (
+            <div style={{
+              margin: '20px 0',
+              padding: '16px',
+              backgroundColor: '#fff8e1',
+              borderRadius: 'var(--radius-md)',
+              border: '1.5px dashed #ffb300',
+              textAlign: 'left'
+            }}>
+              <p style={{ fontSize: '13px', color: '#b78103', margin: 0, fontWeight: 700 }}>
+                🔒 Limite Diário Atingido!
+              </p>
+              <p style={{ fontSize: '12px', color: '#5d4037', margin: '4px 0 0 0', lineHeight: '1.4' }}>
+                Você já concluiu seus 2 quizzes de hoje. Volte amanhã para novos desafios ecológicos e acumular mais XP! 🌱
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              margin: '20px 0',
+              padding: '12px',
+              backgroundColor: 'var(--primary-light)',
+              borderRadius: 'var(--radius-md)',
+              border: '1.5px dashed var(--primary)'
+            }}>
+              <p style={{ fontSize: '12px', color: 'var(--primary-dark)', margin: 0, fontWeight: 500 }}>
+                🔒 <strong>Quiz concluído!</strong> Para ganhar mais XP e continuar jogando, gere um novo conjunto de perguntas.
+              </p>
+            </div>
+          )}
 
           <div className="result-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button className="btn btn-primary btn-block" onClick={handleGenerateNewQuiz} style={{
-              background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
-              boxShadow: '0 4px 14px rgba(46,125,50,0.3)',
-              fontWeight: 700
-            }}>
-              <Sparkles size={16} style={{ marginRight: 4 }} /> Gerar Novo Quiz (IA)
-            </button>
+            {!limitReached && (
+              <button className="btn btn-primary btn-block" onClick={handleGenerateNewQuiz} style={{
+                background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
+                boxShadow: '0 4px 14px rgba(46,125,50,0.3)',
+                fontWeight: 700
+              }}>
+                <Sparkles size={16} style={{ marginRight: 4 }} /> Gerar Novo Quiz (IA)
+              </button>
+            )}
             <button className="btn btn-secondary btn-block" onClick={onGoToRanking}>
               Ver Ranking <Trophy size={14} style={{ marginLeft: 4 }} />
             </button>

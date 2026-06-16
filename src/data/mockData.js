@@ -329,6 +329,306 @@ export const quizQuestions = [
     ],
     answerIndex: 1,
     explanation: "O líquido escuro produzido na compostagem é um excelente biofertilizante orgânico, rico em nutrientes, e deve ser diluído em água para regar as plantas!"
+  },
+  {
+    id: 16,
+    question: "Qual o principal papel dos estômatos presentes nas folhas das plantas?",
+    options: [
+      "Absorver água e sais minerais do solo",
+      "Realizar a troca gasosa (capturar CO₂ e liberar oxigênio e vapor de água)",
+      "Proteger a folha contra insetos predadores",
+      "Conduzir a seiva elaborada para as raízes"
+    ],
+    answerIndex: 1,
+    explanation: "Os estômatos abrem e fecham para permitir a entrada de gás carbônico necessário para a fotossíntese e a saída de oxigênio e água por transpiração."
+  },
+  {
+    id: 17,
+    question: "O que ocorre durante o Ciclo de Calvin (Fase Escura) da fotossíntese?",
+    options: [
+      "A luz solar quebra a molécula de água em oxigênio e hidrogênio",
+      "A planta captura oxigênio para queimar glicose",
+      "O carbono do CO₂ é fixado utilizando energia para produzir glicose",
+      "A clorofila é destruída pelo excesso de calor"
+    ],
+    answerIndex: 2,
+    explanation: "No Ciclo de Calvin, o gás carbônico do ar é convertido em açúcar (glicose) usando as baterias químicas (ATP e NADPH) carregadas na fase clara."
+  },
+  {
+    id: 18,
+    question: "Por que não se deve colocar comida muito temperada ou salgada na composteira?",
+    options: [
+      "Porque o sal atrai baratas e formigas gigantes",
+      "Porque o sal desidrata e mata os microrganismos e minhocas essenciais para a compostagem",
+      "Porque o tempero deixa o adubo com cheiro ruim",
+      "Porque o sal dissolve a matéria seca impedindo a aeração"
+    ],
+    answerIndex: 1,
+    explanation: "O sal e temperos fortes alteram o pH do meio e desidratam por osmose as minhocas e os microrganismos decompositores, interrompendo o ciclo ecológico."
+  },
+  {
+    id: 19,
+    question: "O que acontece se a pilha de compostagem ficar seca demais (sem umidade)?",
+    options: [
+      "O composto fica pronto muito mais rápido",
+      "Os microrganismos entram em dormência ou morrem, parando a decomposição",
+      "As minhocas se multiplicam mais rapidamente",
+      "O composto começa a exalar gás metano tóxico"
+    ],
+    answerIndex: 1,
+    explanation: "A umidade é vital. Sem água, as bactérias e fungos não conseguem viver e trabalhar, paralisando a decomposição dos restos orgânicos."
+  },
+  {
+    id: 20,
+    question: "Como as minhocas ajudam fisicamente na produção do composto orgânico?",
+    options: [
+      "Elas comem os insetos ruins que aparecem na pilha",
+      "Elas cavam túneis que oxigenam o solo e quebram a matéria em pedaços menores através da digestão",
+      "Elas aquecem a terra com seu movimento",
+      "Elas produzem oxigênio puro embaixo da terra"
+    ],
+    answerIndex: 1,
+    explanation: "Ao se moverem, as minhocas criam canais de ar (aeração) e digerem a matéria orgânica, excretando o húmus que é um adubo extremamente rico."
+  },
+  {
+    id: 21,
+    question: "O que define um organismo autótrofo, como as plantas?",
+    options: [
+      "Um ser que se alimenta exclusivamente de outros vegetais",
+      "Um organismo capaz de produzir seu próprio alimento a partir de substâncias inorgânicas usando energia (ex: luz)",
+      "Um decompositor de matéria orgânica morta",
+      "Um animal que realiza fotossíntese de forma artificial"
+    ],
+    answerIndex: 1,
+    explanation: "Autótrofos são seres que 'se alimentam sozinhos' (do grego auto = próprio, trofo = alimento). As plantas produzem sua própria glicose via fotossíntese."
+  },
+  {
+    id: 22,
+    question: "Durante a Fase Clara da fotossíntese, qual a função da molécula de água (H₂O)?",
+    options: [
+      "Ela dissolve o açúcar produzido pela planta",
+      "Ela é quebrada pela energia da luz para fornecer elétrons e liberar oxigênio (O₂)",
+      "Ela serve apenas para resfriar a folha sob o sol",
+      "Ela reage com a glicose para gerar clorofila"
+    ],
+    answerIndex: 1,
+    explanation: "A fotólise da água é a quebra da molécula de água pela luz. Isso libera o oxigênio para a atmosfera e fornece hidrogênio e elétrons para carregar as baterias celulares."
+  },
+  {
+    id: 23,
+    question: "O que é uma plântula no ciclo de vida de um vegetal?",
+    options: [
+      "A semente que ainda não absorveu água",
+      "O estágio jovem da planta após a germinação, quando ela já possui raiz, caule e folhas iniciais",
+      "Uma planta adulta que parou de crescer",
+      "O fruto logo após a polinização da flor"
+    ],
+    answerIndex: 1,
+    explanation: "A plântula é o embrião germinado que já se desenvolveu em uma planta jovem visível, mas ainda pequena e em pleno crescimento."
+  },
+  {
+    id: 24,
+    question: "Qual o principal risco de regar uma planta em excesso, deixando a terra sempre encharcada?",
+    options: [
+      "A planta vai crescer rápido demais e quebrar o caule",
+      "As raízes ficam sem oxigênio para respirar e apodrecem devido à proliferação de fungos ruins",
+      "A planta absorve muito sal e fica salgada",
+      "A fotossíntese é acelerada além do limite aceitável"
+    ],
+    answerIndex: 1,
+    explanation: "O excesso de água expulsa o ar dos poros do solo. Sem oxigênio, as células das raízes morrem sufocadas e a planta apodrece de baixo para cima."
+  },
+  {
+    id: 25,
+    question: "Por que as folhas das plantas são majoritariamente verdes?",
+    options: [
+      "Porque elas absorvem a luz verde do sol e refletem as outras cores",
+      "Porque contêm clorofila, um pigmento que absorve luz azul e vermelha e reflete a luz verde",
+      "Porque o solo fornece nutrientes verdes para o caule",
+      "Porque a glicose produzida tem coloração verde-escura"
+    ],
+    answerIndex: 1,
+    explanation: "A clorofila absorve eficientemente as frequências de luz azul e vermelha para gerar energia, mas não absorve a luz verde, refletindo-a de volta para os nossos olhos."
+  },
+  {
+    id: 26,
+    question: "O que é o endosperma ou cotilédone antes da planta conseguir fazer fotossíntese?",
+    options: [
+      "A casca dura que protege a semente",
+      "O tecido de reserva que fornece nutrientes para o embrião crescer durante a germinação",
+      "A primeira folha que cai assim que a semente toca a terra",
+      "O hormônio que faz a raiz crescer para baixo"
+    ],
+    answerIndex: 1,
+    explanation: "Antes de sair da terra e abrir suas folhas verdes para fazer fotossíntese, o embrião se alimenta das reservas energéticas guardadas dentro da própria semente."
+  },
+  {
+    id: 27,
+    question: "O que é a matéria seca (rica em carbono) na compostagem?",
+    options: [
+      "Cascas de frutas e verduras frescas",
+      "Folhas secas, serragem, palha, galhos secos e papelão sem tinta",
+      "Esterco fresco de animais herbívoros",
+      "Restos de borra de café úmida"
+    ],
+    answerIndex: 1,
+    explanation: "A matéria castanha ou seca fornece o carbono necessário para a estrutura celular dos microrganismos e ajuda a aerar e equilibrar a umidade da composteira."
+  },
+  {
+    id: 28,
+    question: "Por que a compostagem é considerada um processo aeróbio?",
+    options: [
+      "Porque ela precisa de muita água corrente para funcionar",
+      "Porque ocorre na presença de oxigênio, sendo conduzida por microrganismos que respiram ar",
+      "Porque é feita embaixo da terra sem nenhum contato com o ar",
+      "Porque libera gás metano em grandes quantidades"
+    ],
+    answerIndex: 1,
+    explanation: "A compostagem saudável é feita com a presença de ar (oxigênio). Por isso mexemos a pilha periodicamente: para dar oxigênio às bactérias aeróbias trabalharem sem causar mau cheiro."
+  },
+  {
+    id: 29,
+    question: "De onde as plantas obtêm o gás carbônico (CO₂) necessário para a fotossíntese?",
+    options: [
+      "Diretamente da água que absorvem pelas raízes",
+      "Do ar atmosférico, através dos estômatos nas folhas",
+      "Dos minerais presentes no solo orgânico",
+      "Da decomposição química da própria clorofila"
+    ],
+    answerIndex: 1,
+    explanation: "O CO₂ está presente no ar que nos cerca. As plantas o capturam através de poros microscópicos chamados estômatos nas folhas."
+  },
+  {
+    id: 30,
+    question: "Qual a função principal da raiz de uma planta adulta?",
+    options: [
+      "Realizar a fotossíntese no escuro",
+      "Fixar a planta no solo e absorver água e nutrientes minerais",
+      "Produzir sementes e pólen para reprodução",
+      "Proteger o caule de ventos muito frios"
+    ],
+    answerIndex: 1,
+    explanation: "A raiz ancora a planta firmemente no solo e possui pelos absorventes que capturam a água e os sais minerais indispensáveis para a produção de seiva."
+  },
+  {
+    id: 31,
+    question: "O que acontece com a temperatura de uma composteira bem cuidada nas primeiras semanas?",
+    options: [
+      "Ela cai abaixo de zero devido ao vento",
+      "Ela sobe bastante (podendo passar de 50°C) devido ao calor gerado pela atividade intensa das bactérias",
+      "Ela se mantém exatamente igual à temperatura ambiente externa",
+      "Ela flutua apenas de acordo com a umidade da chuva"
+    ],
+    answerIndex: 1,
+    explanation: "A atividade metabólica dos microrganismos decompondo a matéria orgânica gera calor, elevando a temperatura da pilha, o que é ótimo para eliminar sementes de ervas daninhas e germes."
+  },
+  {
+    id: 32,
+    question: "Qual o principal açúcar gerado na fotossíntese que serve de alimento para a planta?",
+    options: [
+      "Frutose",
+      "Glicose",
+      "Lactose",
+      "Sacarose artificial"
+    ],
+    answerIndex: 1,
+    explanation: "A glicose é o carboidrato (açúcar simples) sintetizado durante a fotossíntese. É a fonte primária de energia para a respiração e crescimento da planta."
+  },
+  {
+    id: 33,
+    question: "Na compostagem, o que representa a matéria verde ou úmida?",
+    options: [
+      "Galhos grossos de árvore e pedras do jardim",
+      "Restos de cozinha (cascas de legumes, frutas, saquinhos de chá) que são ricos em nitrogênio",
+      "Plásticos biodegradáveis picados",
+      "Papelão e jornais velhos rasgados"
+    ],
+    answerIndex: 1,
+    explanation: "A matéria verde (úmida) é rica em nitrogênio. Ela serve de alimento proteico para as bactérias se multiplicarem e decomporem os materiais rapidamente."
+  },
+  {
+    id: 34,
+    question: "Por que a luz solar é indispensável para a fotossíntese?",
+    options: [
+      "Porque ela aquece a planta para derreter a água congelada",
+      "Porque fornece a energia necessária para quebrar a água e unir os átomos na fabricação da glicose",
+      "Porque clareia a folha permitindo que ela respire melhor",
+      "Porque afasta insetos noturnos que comem a clorofila"
+    ],
+    answerIndex: 1,
+    explanation: "A luz solar carrega a energia radiante. A clorofila absorve essa luz e a transforma em energia química, que atua como combustível para sintetizar açúcar a partir de água e CO₂."
+  },
+  {
+    id: 35,
+    question: "Qual o nome do processo pelo qual as plantas liberam vapor de água para a atmosfera, ajudando a regular sua temperatura?",
+    options: [
+      "Sublimação",
+      "Transpiração",
+      "Condensação",
+      "Embebição celular"
+    ],
+    answerIndex: 1,
+    explanation: "A transpiração ocorre quando a água evapora das folhas através dos estômatos, puxando mais água do solo e resfriando a planta no calor."
+  },
+  {
+    id: 36,
+    question: "Como se chama a casca protetora externa de uma semente?",
+    options: [
+      "Embrião",
+      "Tegumento",
+      "Endosperma",
+      "Radícula"
+    ],
+    answerIndex: 1,
+    explanation: "O tegumento é a casca ou envoltório protetor que mantém o embrião da semente seguro e adormecido até que as condições de germinação sejam ideais."
+  },
+  {
+    id: 37,
+    question: "O que é a clorofila?",
+    options: [
+      "Um nutriente mineral que as plantas sugam do solo",
+      "Um pigmento fotorreceptor que capta a energia da luz solar para realizar a fotossíntese",
+      "O açúcar que a planta usa para crescer",
+      "A casca fina que protege o broto verde"
+    ],
+    answerIndex: 1,
+    explanation: "A clorofila é uma molécula complexa (pigmento verde) localizada dentro dos cloroplastos que absorve a luz solar, dando início ao processo fotossintético."
+  },
+  {
+    id: 38,
+    question: "Na fotossíntese, qual gás é liberado no ar como subproduto da quebra da água?",
+    options: [
+      "Nitrogênio (N₂)",
+      "Oxigênio (O₂)",
+      "Gás Carbônico (CO₂)",
+      "Metano (CH₄)"
+    ],
+    answerIndex: 1,
+    explanation: "Quando a planta quebra a molécula de água na fase clara, ela aproveita os hidrogênios e descarta o Oxigênio residual no ar, purificando nossa atmosfera."
+  },
+  {
+    id: 39,
+    question: "Qual a função do caule para a estrutura de um vegetal?",
+    options: [
+      "Absorver água diretamente da chuva",
+      "Sustentar as folhas e flores e transportar água e nutrientes entre a raiz e as folhas",
+      "Enterrar a planta no solo durante o vento forte",
+      "Produzir clorofila em larga escala no inverno"
+    ],
+    answerIndex: 1,
+    explanation: "O caule atua como o esqueleto e o sistema de encanamento da planta, contendo vasos que levam água (xilema) e açúcar (floema) por todo o vegetal."
+  },
+  {
+    id: 40,
+    question: "O que é o húmus obtido ao final de uma compostagem de sucesso?",
+    options: [
+      "Um tipo de fungo venenoso que ataca plantas adultas",
+      "Uma matéria orgânica escura, rica em nutrientes e microrganismos benéficos, ideal para adubar o solo",
+      "Um biofertilizante gasoso inflamável",
+      "Uma terra ácida que deve ser descartada"
+    ],
+    answerIndex: 1,
+    explanation: "O húmus é o produto final da decomposição. Ele tem cheiro de floresta, é escuro, retém água perfeitamente e alimenta as plantas com minerais de absorção lenta."
   }
 ];
 
