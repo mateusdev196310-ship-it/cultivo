@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, Users, Sprout, BarChart3, MessageSquare, Heart, RefreshCw, Plus, Trash2, Camera, X } from 'lucide-react';
-import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma, compressImage, deletePlant, formatDateBR } from '../db';
+import { getPlants, getPosts, getClassFeedback, getUsers, getTurmas, createTurma, deleteTurma, updateTurmaFoto, updateUsersTurma, compressImage, deletePlant, formatDateBR, getActivities } from '../db';
 
 
 const TABS = [
@@ -168,81 +168,20 @@ export default function Admin() {
   };
 
   const getStudentActivities = (studentEmail) => {
-    const activities = [];
-
-    // 1. Plantios
-    const studentPlants = plants.filter(p => p.studentEmail === studentEmail);
-    studentPlants.forEach(p => {
-      activities.push({
-        type: 'plantio',
-        icon: '🌱',
-        title: `Cultivo Inicial: ${p.name}`,
-        subtitle: `Espécie: ${p.species}`,
-        date: p.startDate,
-        pts: ACTIVITY_POINTS.plantio.pts,
-      });
-      
-      // 2. Atualizações Semanais (fotos com dia > 1)
-      if (p.photos && p.photos.length > 0) {
-        p.photos.forEach(photo => {
-          if (photo.day > 1) {
-            activities.push({
-              type: 'atualizacao',
-              icon: '📸',
-              title: `Atualização: Dia ${photo.day} de ${p.name}`,
-              subtitle: `Fase: ${photo.stageName} - Notas: "${photo.notes}"`,
-              date: photo.date,
-              pts: ACTIVITY_POINTS.atualizacao.pts,
-            });
-          }
-        });
-      }
-    });
-
-    // 3. Curtidas no Feed
-    posts.forEach(post => {
-      if (post.likes && post.likes.includes(studentEmail)) {
-        activities.push({
-          type: 'curtida',
-          icon: '❤️',
-          title: `Curtiu o cultivo de ${post.studentName}`,
-          subtitle: `Planta: ${post.plantName} (Dia ${post.day})`,
-          date: post.date,
-          pts: ACTIVITY_POINTS.curtida.pts,
-        });
-      }
-      
-      // 4. Comentários no Feed
-      if (post.comments && post.comments.length > 0) {
-        post.comments.forEach(comment => {
-          if (comment.studentEmail === studentEmail) {
-            activities.push({
-              type: 'comentario',
-              icon: '💬',
-              title: `Comentou no cultivo de ${post.studentName}`,
-              subtitle: `"${comment.text}" (na planta ${post.plantName})`,
-              date: comment.date || post.date,
-              pts: ACTIVITY_POINTS.comentario.pts,
-            });
-          }
-        });
-      }
-    });
-
-    // 5. Opinião da Aula
-    const feedback = feedbackList.find(f => f.email === studentEmail);
-    if (feedback) {
-      activities.push({
-        type: 'feedback',
-        icon: '😍',
-        title: `Opinião da Aula: ${feedback.vote}`,
-        subtitle: `Votou na aula de hoje`,
-        date: feedback.date,
-        pts: ACTIVITY_POINTS.feedback.pts,
-      });
-    }
-
-    return activities.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
+    const allActivities = getActivities();
+    const cleanEmail = studentEmail.trim().toLowerCase();
+    
+    return allActivities
+      .filter(act => (act.studentEmail || '').trim().toLowerCase() === cleanEmail)
+      .map(act => ({
+        type: act.type,
+        icon: ACTIVITY_POINTS[act.type]?.icon || '✨',
+        title: act.title,
+        subtitle: act.description,
+        date: act.date,
+        pts: act.points
+      }))
+      .sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
   };
 
   return (
@@ -851,6 +790,8 @@ export default function Admin() {
                 const alunoFeedback = feedbackList.find(f => f.email === aluno.email);
                 const alunoCurtidas = posts.reduce((acc, p) => acc + (p.likes.includes(aluno.email) ? 1 : 0), 0);
                 const alunoComentarios = posts.reduce((acc, p) => acc + p.comments.filter(c => c.studentEmail === aluno.email).length, 0);
+                const studentActs = getActivities().filter(a => (a.studentEmail || '').trim().toLowerCase() === aluno.email.trim().toLowerCase());
+                const alunoQuizzes = studentActs.filter(a => a.type === 'quiz').length;
                 const turma = turmas.find(t => t.id === aluno.turmaId);
 
                 return (
@@ -867,6 +808,7 @@ export default function Admin() {
                           {alunoAtualizacoes > 0 && <span className="nota-badge-act">📸 {alunoAtualizacoes} atualiz.</span>}
                           {alunoCurtidas > 0 && <span className="nota-badge-act">❤️ {alunoCurtidas} curtida{alunoCurtidas>1?'s':''}</span>}
                           {alunoComentarios > 0 && <span className="nota-badge-act">💬 {alunoComentarios} coment.</span>}
+                          {alunoQuizzes > 0 && <span className="nota-badge-act">🏆 {alunoQuizzes} quiz{alunoQuizzes>1?'zes':''}</span>}
                           {alunoFeedback && <span className="nota-badge-act">😍 feedback</span>}
                         </div>
                       </div>

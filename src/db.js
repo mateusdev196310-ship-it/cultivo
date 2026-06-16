@@ -280,6 +280,25 @@ export async function syncLocalToSupabase() {
       }
     }
 
+    // 6. Sincronizar atividades da própria conta
+    const localActivities = JSON.parse(localStorage.getItem('cultiva_activities') || '[]');
+    const myLocalActivities = localActivities.filter(a => (a.studentEmail || '').trim().toLowerCase() === cleanEmail);
+    const { data: serverActivities, error: errActivities } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('studentEmail', cleanEmail);
+
+    if (!errActivities && serverActivities) {
+      const normalizedServerActivities = normalizeDbObject(serverActivities);
+      for (const localAct of myLocalActivities) {
+        const exists = normalizedServerActivities.some(a => a.id === localAct.id);
+        if (!exists) {
+          console.log(`[Cultiva Sync] Enviando atividade offline para o Supabase: ${localAct.id}`);
+          await supabase.from('activities').insert([localAct]);
+        }
+      }
+    }
+
     console.log('[Cultiva Sync] Sincronização offline-para-online concluída com sucesso!');
   } catch (err) {
     console.warn('[Cultiva Sync] Falha durante a sincronização automática:', err);
@@ -358,6 +377,9 @@ export async function initDb(forceSync = false) {
   if (!localStorage.getItem('cultiva_turmas')) {
     localStorage.setItem('cultiva_turmas', JSON.stringify([]));
   }
+  if (!localStorage.getItem('cultiva_activities')) {
+    localStorage.setItem('cultiva_activities', JSON.stringify([]));
+  }
 
   // Sincronização com o Supabase (se disponível e forçada no início do app)
   if (supabase && forceSync) {
@@ -370,13 +392,15 @@ export async function initDb(forceSync = false) {
         { data: users, error: errorUsers },
         { data: plants, error: errorPlants },
         { data: posts, error: errorPosts },
-        { data: feedback, error: errorFeedback }
+        { data: feedback, error: errorFeedback },
+        { data: activities, error: errorActivities }
       ] = await Promise.all([
         supabase.from('turmas').select('*'),
         supabase.from('users').select('*'),
         supabase.from('plants').select('*'),
         supabase.from('posts').select('*'),
-        supabase.from('feedback').select('*')
+        supabase.from('feedback').select('*'),
+        supabase.from('activities').select('*')
       ]);
 
       if (errorTurmas) console.warn('[Supabase Sync] Erro ao buscar turmas:', errorTurmas);
@@ -411,6 +435,11 @@ export async function initDb(forceSync = false) {
           return { ...f, vote: emojiVote };
         });
         localStorage.setItem('cultiva_feedback', JSON.stringify(mappedFeedback));
+      }
+
+      if (errorActivities) console.warn('[Supabase Sync] Erro ao buscar atividades:', errorActivities);
+      else if (activities) {
+        localStorage.setItem('cultiva_activities', JSON.stringify(normalizeDbObject(activities)));
       }
 
       console.log('%c[Cultiva] Dados sincronizados com o Supabase com sucesso!', 'color: #22c55e; font-weight: bold;');
@@ -527,6 +556,35 @@ export function getUsers() {
   initDb();
   const users = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
   return normalizeDbObject(users);
+}
+
+// Obter atividades do LocalStorage
+export function getActivities() {
+  initDb();
+  return JSON.parse(localStorage.getItem('cultiva_activities') || '[]');
+}
+
+// Registrar atividade
+export function logActivity(studentEmail, studentName, type, title, description, points, date) {
+  const activities = getActivities();
+  const newActivity = {
+    id: 'act-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+    studentEmail: studentEmail.trim().toLowerCase(),
+    studentName,
+    type,
+    title,
+    description,
+    points,
+    date
+  };
+  activities.push(newActivity);
+  localStorage.setItem('cultiva_activities', JSON.stringify(activities));
+
+  if (supabase) {
+    supabase.from('activities').insert([newActivity]).then(({ error }) => {
+      if (error) console.error('[Supabase Error] logActivity:', error);
+    });
+  }
 }
 
 // Salvar plantas no LocalStorage
@@ -776,7 +834,7 @@ export async function fetchLeaderboard(currentUser) {
 }
 
 // Atribuir Pontuação para um Aluno
-export function awardPoints(studentEmail, amount, studentName) {
+export function awardPoints(studentEmail, amount, studentName, activityType = null, activityTitle = null, activityDesc = null) {
   const users = getUsers();
   const cleanEmail = studentEmail.trim().toLowerCase();
   const isAdmin = ADMIN_EMAILS.includes(cleanEmail);
@@ -787,21 +845,31 @@ export function awardPoints(studentEmail, amount, studentName) {
   }
 
   let userIndex = users.findIndex(u => u.email === cleanEmail);
+  let updatedUser;
 
   if (userIndex === -1) {
     const startPoints = amount < 0 ? 0 : amount;
-    updatedUser = { email: cleanEmail, name: studentName || (isAdmin ? "Ester Ferreira (ADM)" : "Estudante"), points: startPoints, turmaId: null, isAdmin: isAdmin };
+    updatedUser = { email: cleanEmail, name: studentName || "Estudante", points: startPoints, turmaId: null, isAdmin: false };
     users.push(updatedUser);
   } else {
     users[userIndex].points += amount;
     if (users[userIndex].points < 0) {
       users[userIndex].points = 0;
     }
-    users[userIndex].isAdmin = isAdmin;
+    users[userIndex].isAdmin = false;
     updatedUser = users[userIndex];
   }
 
   saveUsers(users);
+
+  // Registrar a atividade no log de atividades
+  if (amount !== 0 || activityType) {
+    const todayStr = getTodayDateBR();
+    const type = activityType || (amount === 420 ? 'plantio' : amount === 100 ? 'atualizacao' : amount === 5 ? 'curtida' : amount === 10 ? 'comentario' : amount < 0 ? 'penalidade' : 'quiz');
+    const title = activityTitle || (amount === 420 ? 'Cultivo Inicial' : amount === 100 ? 'Atualização Semanal' : amount === 5 ? 'Curtida' : amount === 10 ? 'Comentário/Feedback' : amount < 0 ? 'Penalidade' : 'Quiz Ecológico');
+    const desc = activityDesc || (amount > 0 ? `Recebeu +${amount} XP` : amount < 0 ? `Perdeu ${amount} XP` : `Completou a atividade`);
+    logActivity(cleanEmail, studentName || updatedUser.name || "Estudante", type, title, desc, amount, todayStr);
+  }
 
   // Atualizar a sessão do usuário logado se for ele mesmo
   const session = localStorage.getItem('cultiva_user');

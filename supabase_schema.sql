@@ -54,12 +54,25 @@ CREATE TABLE IF NOT EXISTS public.feedback (
     date TEXT NOT NULL
 );
 
+-- Create table for public.activities
+CREATE TABLE IF NOT EXISTS public.activities (
+    id TEXT PRIMARY KEY,
+    "studentEmail" TEXT NOT NULL REFERENCES public.users(email) ON DELETE CASCADE,
+    "studentName" TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    points INTEGER NOT NULL,
+    date TEXT NOT NULL
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.turmas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
 
 -- Enable Public Read and Write Policies for all tables (since this app doesn't require authenticated logins yet)
 CREATE POLICY "Allow public read/write on turmas" ON public.turmas FOR ALL USING (true) WITH CHECK (true);
@@ -67,5 +80,7 @@ CREATE POLICY "Allow public read/write on users" ON public.users FOR ALL USING (
 CREATE POLICY "Allow public read/write on plants" ON public.plants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public read/write on posts" ON public.posts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public read/write on feedback" ON public.feedback FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on activities" ON public.activities FOR ALL USING (true) WITH CHECK (true);
+
 
 

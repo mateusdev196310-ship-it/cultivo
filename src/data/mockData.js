@@ -269,6 +269,66 @@ export const quizQuestions = [
     ],
     answerIndex: 2,
     explanation: "Com as folhas verdadeiras crescidas e funcionando, a planta não precisa mais das reservas dos cotilédones. Eles cumpriram sua missão e naturalmente murcham e caem — é um sinal de saúde!"
+  },
+  {
+    id: 11,
+    question: "Qual é o principal gás absorvido pelas plantas durante a Fase Escura da fotossíntese?",
+    options: [
+      "Oxigênio (O₂)",
+      "Gás Carbônico (CO₂)",
+      "Nitrogênio (N₂)",
+      "Hidrogênio (H₂)"
+    ],
+    answerIndex: 1,
+    explanation: "As plantas absorvem Gás Carbônico (CO₂) do ar através dos estômatos para fabricar glicose no Ciclo de Calvin."
+  },
+  {
+    id: 12,
+    question: "Qual destes materiais é considerado 'matéria seca' (rica em carbono) para a composteira?",
+    options: [
+      "Serragem e folhas secas",
+      "Cascas de banana e restos de maçã",
+      "Borra de café",
+      "Cascas de ovos"
+    ],
+    answerIndex: 0,
+    explanation: "Folhas secas, serragem, palha e papelão são ricos em carbono e servem para cobrir a matéria úmida (rica em nitrogênio)."
+  },
+  {
+    id: 13,
+    question: "Como se chama o pigmento verde nas folhas que capta a luz solar?",
+    options: [
+      "Caroteno",
+      "Clorofila",
+      "Xantofila",
+      "Antocianina"
+    ],
+    answerIndex: 1,
+    explanation: "A clorofila é o pigmento verde que absorve a luz solar nos cloroplastos para iniciar a Fase Clara da fotossíntese."
+  },
+  {
+    id: 14,
+    question: "Em qual fase da germinação a semente incha e ativa seu metabolismo interno?",
+    options: [
+      "Fase de respiração",
+      "Absorção de água (embebição)",
+      "Crescimento da raiz",
+      "Abertura dos cotilédones"
+    ],
+    answerIndex: 1,
+    explanation: "Ao entrar em contato com a água, a semente seca a absorve e incha, iniciando o metabolismo para dar vida ao broto."
+  },
+  {
+    id: 15,
+    question: "O que é o biofertilizante líquido (ou chorume orgânico) na compostagem?",
+    options: [
+      "Um líquido tóxico que estraga o solo",
+      "Um adubo líquido super rico em nutrientes obtido pelo excesso de umidade controlado",
+      "Água pura da chuva que escorre",
+      "Um veneno natural contra pragas do solo"
+    ],
+    answerIndex: 1,
+    explanation: "O líquido escuro produzido na compostagem é um excelente biofertilizante orgânico, rico em nutrientes, e deve ser diluído em água para regar as plantas!"
   }
 ];
 
