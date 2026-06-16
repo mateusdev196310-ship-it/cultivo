@@ -50,6 +50,7 @@ export default function Admin() {
   const turmaFotoRefs = useRef({});
   const [groupingTurmaId, setGroupingTurmaId] = useState(null);
   const [selectedStudentEmails, setSelectedStudentEmails] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const loadAdminData = () => {
     const allPlants = getPlants();
@@ -153,6 +154,95 @@ export default function Admin() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const parseDateToTimestamp = (dateStr) => {
+    if (!dateStr) return 0;
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+      }
+    }
+    return new Date(dateStr).getTime();
+  };
+
+  const getStudentActivities = (studentEmail) => {
+    const activities = [];
+
+    // 1. Plantios
+    const studentPlants = plants.filter(p => p.studentEmail === studentEmail);
+    studentPlants.forEach(p => {
+      activities.push({
+        type: 'plantio',
+        icon: '🌱',
+        title: `Cultivo Inicial: ${p.name}`,
+        subtitle: `Espécie: ${p.species}`,
+        date: p.startDate,
+        pts: ACTIVITY_POINTS.plantio.pts,
+      });
+      
+      // 2. Atualizações Semanais (fotos com dia > 1)
+      if (p.photos && p.photos.length > 0) {
+        p.photos.forEach(photo => {
+          if (photo.day > 1) {
+            activities.push({
+              type: 'atualizacao',
+              icon: '📸',
+              title: `Atualização: Dia ${photo.day} de ${p.name}`,
+              subtitle: `Fase: ${photo.stageName} - Notas: "${photo.notes}"`,
+              date: photo.date,
+              pts: ACTIVITY_POINTS.atualizacao.pts,
+            });
+          }
+        });
+      }
+    });
+
+    // 3. Curtidas no Feed
+    posts.forEach(post => {
+      if (post.likes && post.likes.includes(studentEmail)) {
+        activities.push({
+          type: 'curtida',
+          icon: '❤️',
+          title: `Curtiu o cultivo de ${post.studentName}`,
+          subtitle: `Planta: ${post.plantName} (Dia ${post.day})`,
+          date: post.date,
+          pts: ACTIVITY_POINTS.curtida.pts,
+        });
+      }
+      
+      // 4. Comentários no Feed
+      if (post.comments && post.comments.length > 0) {
+        post.comments.forEach(comment => {
+          if (comment.studentEmail === studentEmail) {
+            activities.push({
+              type: 'comentario',
+              icon: '💬',
+              title: `Comentou no cultivo de ${post.studentName}`,
+              subtitle: `"${comment.text}" (na planta ${post.plantName})`,
+              date: comment.date || post.date,
+              pts: ACTIVITY_POINTS.comentario.pts,
+            });
+          }
+        });
+      }
+    });
+
+    // 5. Opinião da Aula
+    const feedback = feedbackList.find(f => f.email === studentEmail);
+    if (feedback) {
+      activities.push({
+        type: 'feedback',
+        icon: '😍',
+        title: `Opinião da Aula: ${feedback.vote}`,
+        subtitle: `Votou na aula de hoje`,
+        date: feedback.date,
+        pts: ACTIVITY_POINTS.feedback.pts,
+      });
+    }
+
+    return activities.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
   };
 
   return (
@@ -785,7 +875,7 @@ export default function Admin() {
                       <strong style={{ fontSize: 15, color: 'var(--primary-dark)' }}>{aluno.points || 0}</strong>
                       <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>XP</div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
+                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                       <span style={{
                         fontSize: 20, fontWeight: 900,
                         color: nota.cor,
@@ -794,12 +884,198 @@ export default function Admin() {
                         borderRadius: 8,
                         display: 'inline-block'
                       }}>{nota.letra}</span>
+                      <button
+                        onClick={() => setSelectedStudent(aluno)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary-dark)',
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: '2px 6px',
+                        }}
+                      >
+                        🔍 Ver Atividades
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODAL DE HISTÓRICO DE ATIVIDADES DO ALUNO */}
+      {selectedStudent && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '16px',
+        }} onClick={() => setSelectedStudent(null)}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+          }} onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{
+              padding: '16px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#f9fafb',
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#111827', fontWeight: 800 }}>
+                  📋 Histórico de Atividades
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
+                  {selectedStudent.name} ({selectedStudent.email})
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                style={{
+                  background: '#f3f4f6',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#4b5563',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Resumo */}
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: '#f0fdf4',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div>
+                <span style={{ fontSize: '12px', color: '#166534', fontWeight: 700 }}>
+                  🏫 Turma: {turmas.find(t => t.id === selectedStudent.turmaId)?.nome || 'Sem Turma'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#166534', backgroundColor: '#dcfce7', padding: '4px 8px', borderRadius: '8px' }}>
+                  {selectedStudent.points || 0} XP
+                </span>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: 900,
+                  color: pontosParaNota(selectedStudent.points || 0).cor,
+                  backgroundColor: pontosParaNota(selectedStudent.points || 0).cor + '15',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                }}>
+                  Nota: {pontosParaNota(selectedStudent.points || 0).letra}
+                </span>
+              </div>
+            </div>
+
+            {/* List */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}>
+              {getStudentActivities(selectedStudent.email).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 16px', color: '#9ca3af' }}>
+                  <p style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Nenhuma atividade registrada</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>O aluno ainda não interagiu com o aplicativo.</p>
+                </div>
+              ) : (
+                getStudentActivities(selectedStudent.email).map((act, i) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #f3f4f6',
+                  }}>
+                    <div style={{
+                      fontSize: '20px',
+                      backgroundColor: '#ffffff',
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    }}>
+                      {act.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <h4 style={{ margin: 0, fontSize: '13px', color: '#1f2937', fontWeight: 700 }}>
+                          {act.title}
+                        </h4>
+                        <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>
+                          +{act.pts} XP
+                        </span>
+                      </div>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#4b5563', lineHeight: '1.4' }}>
+                        {act.subtitle}
+                      </p>
+                      <div style={{ marginTop: '8px', fontSize: '10px', color: '#9ca3af', fontWeight: 500 }}>
+                        📅 Realizado em: {act.date}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #e5e7eb',
+              backgroundColor: '#f9fafb',
+              textAlign: 'right',
+            }}>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '6px 16px', fontSize: '12px', height: 'auto', border: '1px solid var(--border-color)' }}
+                onClick={() => setSelectedStudent(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
