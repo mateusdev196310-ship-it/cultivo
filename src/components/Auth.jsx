@@ -4,6 +4,10 @@ import { loginUser, registerStudent, getTurmas } from '../db';
 
 const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
 
+// Detecção de sistema iOS e se o app já está rodando em modo standalone (PWA instalado)
+const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const isStandalone = typeof window !== 'undefined' && (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
+
 export default function Auth({ onLogin, installPrompt, onInstallPwa }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [name, setName] = useState('');
@@ -271,6 +275,23 @@ export default function Auth({ onLogin, installPrompt, onInstallPwa }) {
         <div className="auth-footer">
           <p>Aprenda jardinagem, sustentabilidade e registre o crescimento das suas plantas de forma interativa!</p>
         </div>
+
+        {isIOS && !isStandalone && (
+          <div className="ios-install-tip animate-fade-in" style={{
+            marginTop: '16px',
+            backgroundColor: 'var(--primary-light)',
+            border: '1px solid rgba(46, 125, 50, 0.2)',
+            borderRadius: '12px',
+            padding: '10px 14px',
+            fontSize: '11px',
+            color: 'var(--primary-dark)',
+            textAlign: 'center',
+            fontWeight: 500,
+            lineHeight: '1.4'
+          }}>
+            📱 <strong>Dica para iPhone:</strong> Toque no ícone de compartilhamento <span style={{ fontSize: '13px' }}>⎋</span> (na barra inferior do Safari) e selecione <strong>"Adicionar à Tela de Início"</strong> para baixar o app.
+          </div>
+        )}
       </div>
     </div>
   );
