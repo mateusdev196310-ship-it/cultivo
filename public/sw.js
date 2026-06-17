@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cultiva-app-v11';
+const CACHE_NAME = 'cultiva-app-v12';
 const ASSETS = [
   './',
   './index.html',
