@@ -19,6 +19,22 @@ const DEFAULT_HOUR = 8; // 8h da manhã
 const MS_24H = 24 * 60 * 60 * 1000;
 const CHECK_INTERVAL = 60 * 1000; // verificar a cada 1 minuto
 
+// Utilitário para converter a chave pública VAPID de Base64 para Uint8Array
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('learn');
@@ -269,6 +285,56 @@ export default function App() {
     };
   }, []);
 
+  // Sincronizar assinatura push em segundo plano se ativo
+  useEffect(() => {
+    const syncPushSubscription = async () => {
+      if (notifEnabled && user && !user.isAdmin && swRef.current && supabase) {
+        try {
+          const registration = swRef.current;
+          let subscription = await registration.pushManager.getSubscription();
+          
+          if (!subscription && Notification.permission === 'granted') {
+            const publicVapidKey = window.CULTIVA_CONFIG?.VITE_VAPID_PUBLIC_KEY || "BK9gu45ouwu5ajLR1P5C4g2qc11u4RwjV7sxWxeBYBOB1eHwPYRaanS0d4t_N0f0Yayjrxfl2zRnSSNYS5Nq2zg";
+            const convertedKey = urlBase64ToUint8Array(publicVapidKey);
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: convertedKey
+            });
+            console.log('[Push Sync] Assinatura recriada no background:', subscription);
+          }
+
+          if (subscription) {
+            const cleanEmail = user.email.trim().toLowerCase();
+            const { data: latestProfile } = await supabase
+              .from('users')
+              .select('pushSubscription')
+              .eq('email', cleanEmail)
+              .maybeSingle();
+
+            if (!latestProfile || JSON.stringify(latestProfile.pushSubscription) !== JSON.stringify(subscription)) {
+              console.log('[Push Sync] Atualizando assinatura push no banco...');
+              await supabase
+                .from('users')
+                .update({ pushSubscription: subscription })
+                .eq('email', cleanEmail);
+              
+              const updated = { ...user, pushSubscription: subscription };
+              setUser(updated);
+              localStorage.setItem('cultiva_user', JSON.stringify(updated));
+            }
+          }
+        } catch (err) {
+          console.warn('[Push Sync] Falha ao sincronizar assinatura push no background:', err);
+        }
+      }
+    };
+
+    if (isDbReady && user) {
+      const t = setTimeout(syncPushSubscription, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [notifEnabled, user?.email, isDbReady]);
+
   const handleManualRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
@@ -288,6 +354,34 @@ export default function App() {
     if (notifEnabled) {
       localStorage.setItem(NOTIF_ENABLED_KEY, 'false');
       setNotifEnabled(false);
+      
+      // Cancelar assinatura de push se houver
+      try {
+        const registration = swRef.current;
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+          if (subscription) {
+            await subscription.unsubscribe();
+            console.log('[Push] Cancelou assinatura de push com sucesso.');
+          }
+        }
+      } catch (err) {
+        console.warn('[Push] Erro ao desinscrever do Push:', err);
+      }
+
+      // Remover do Supabase
+      if (user && user.email && supabase) {
+        const cleanEmail = user.email.trim().toLowerCase();
+        await supabase
+          .from('users')
+          .update({ pushSubscription: null })
+          .eq('email', cleanEmail);
+        
+        const updated = { ...user, pushSubscription: null };
+        setUser(updated);
+        localStorage.setItem('cultiva_user', JSON.stringify(updated));
+      }
+
       setNotifStatus('🔕 Lembretes desativados.');
       setTimeout(() => setNotifStatus(''), 3000);
       return;
@@ -314,6 +408,43 @@ export default function App() {
       localStorage.setItem(NOTIF_ENABLED_KEY, 'true');
       setNotifEnabled(true);
 
+      // Registrar assinatura push no navegador e Supabase
+      let subscription = null;
+      try {
+        const registration = swRef.current;
+        if (registration) {
+          // Obter a chave pública VAPID dinâmica do config.js ou do fallback padrão
+          const publicVapidKey = window.CULTIVA_CONFIG?.VITE_VAPID_PUBLIC_KEY || "BK9gu45ouwu5ajLR1P5C4g2qc11u4RwjV7sxWxeBYBOB1eHwPYRaanS0d4t_N0f0Yayjrxfl2zRnSSNYS5Nq2zg";
+          const convertedKey = urlBase64ToUint8Array(publicVapidKey);
+          
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey
+          });
+          console.log('[Push] Nova assinatura de push obtida:', subscription);
+
+          if (user && user.email && supabase) {
+            const cleanEmail = user.email.trim().toLowerCase();
+            const { error } = await supabase
+              .from('users')
+              .update({ pushSubscription: subscription })
+              .eq('email', cleanEmail);
+
+            if (error) {
+              console.error('[Push] Erro ao salvar assinatura no banco:', error);
+            } else {
+              const updated = { ...user, pushSubscription: subscription };
+              setUser(updated);
+              localStorage.setItem('cultiva_user', JSON.stringify(updated));
+              console.log('[Push] Assinatura salva no banco com sucesso!');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Push] Não foi possível ativar as notificações push (PWA offline ou Safari sem suporte a VAPID):', err);
+      }
+
+      // Disparar uma notificação local de ativação como feedback visual imediato
       new Notification('🌿 Lembretes Ativados!', {
         body: `Você receberá avisos diários nos horários de cultivo: 08:00 AM, 13:30 PM e 16:00 PM. 🌱`,
         icon: '/favicon.svg',
@@ -328,12 +459,44 @@ export default function App() {
   };
 
   // Disparar lembrete manual (botão 🔔)
-  const handleManualReminder = () => {
+  const handleManualReminder = async () => {
     if (Notification.permission !== 'granted') {
       handleToggleNotifications();
       return;
     }
-    sendDailyReminder('morning');
+
+    let sentViaPush = false;
+    try {
+      const registration = swRef.current;
+      if (registration) {
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          // Se tivermos a assinatura, fazemos um disparo REAL de push via servidor
+          const response = await fetch('/api/send-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription,
+              title: '🌿 Lembrete de Cultivo (Manual)',
+              body: 'Hora de regar sua plantinha e dar sol para ela! 🌱💧 (Disparo de teste)'
+            })
+          });
+          
+          if (response.ok) {
+            sentViaPush = true;
+            console.log('[Push Test] Notificação push de teste enviada via servidor!');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Push Test] Falha ao enviar via servidor, usando fallback local:', err);
+    }
+
+    // Se falhar ou não houver assinatura push ativa, enviamos localmente
+    if (!sentViaPush) {
+      sendDailyReminder('morning');
+    }
+
     setNotifStatus('📨 Lembrete enviado agora!');
     setTimeout(() => setNotifStatus(''), 3000);
   };

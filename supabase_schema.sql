@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     password TEXT,
     points INTEGER NOT NULL DEFAULT 0,
     "turmaId" TEXT REFERENCES public.turmas(id) ON DELETE SET NULL,
-    "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE
+    "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE,
+    "pushSubscription" JSONB
 );
 
 -- Create table for public.plants

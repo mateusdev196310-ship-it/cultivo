@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cultiva-app-v12';
+const CACHE_NAME = 'cultiva-app-v13';
 const ASSETS = [
   './',
   './index.html',
@@ -90,8 +90,21 @@ const MENSAGENS_LEMBRETE = [
 
 // Receber notificação push (quando app estiver fechado)
 self.addEventListener('push', (e) => {
-  const idx = Math.floor(Math.random() * MENSAGENS_LEMBRETE.length);
-  const msg = MENSAGENS_LEMBRETE[idx];
+  let msg = null;
+  
+  try {
+    if (e.data) {
+      msg = e.data.json();
+    }
+  } catch (err) {
+    console.error('[SW Push] Erro ao parsear payload JSON da notificação:', err);
+  }
+
+  // Fallback se não vier payload ou der erro no parse
+  if (!msg || !msg.title) {
+    const idx = Math.floor(Math.random() * MENSAGENS_LEMBRETE.length);
+    msg = MENSAGENS_LEMBRETE[idx];
+  }
 
   e.waitUntil(
     self.registration.showNotification(msg.title, {
@@ -101,7 +114,10 @@ self.addEventListener('push', (e) => {
       tag: 'cultiva-daily-reminder',
       renotify: true,
       requireInteraction: false,
-      vibrate: [200, 100, 200]
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: 'abrir', title: '🌿 Abrir App' }
+      ]
     })
   );
 });
