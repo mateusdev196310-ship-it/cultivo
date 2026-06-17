@@ -54,7 +54,7 @@ export default function Auth({ onLogin }) {
           setIsLoading(false);
           return;
         }
-        const loggedUser = await registerStudent(name.trim(), cleanEmail, password, null);
+        const loggedUser = await registerStudent(name.trim(), cleanEmail, password, turmaId || null);
         onLogin(loggedUser);
       }
     } catch (err) {
@@ -129,24 +129,65 @@ export default function Auth({ onLogin }) {
         <form onSubmit={handleSubmit} className="auth-form">
           {/* Nome Completo (apenas no Cadastro) */}
           {mode === 'register' && (
-            <div className="input-group animate-fade-in" style={{ marginBottom: '16px' }}>
-              <label htmlFor="name">Nome Completo</label>
-              <div className="input-wrapper">
-                <User size={18} className="input-icon" />
-                 <input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setError('');
-                  }}
-                  disabled={isLoading}
-                  required
-                />
+            <>
+              <div className="input-group animate-fade-in" style={{ marginBottom: '16px' }}>
+                <label htmlFor="name">Nome Completo</label>
+                <div className="input-wrapper">
+                  <User size={18} className="input-icon" />
+                   <input
+                    id="name"
+                    type="text"
+                    placeholder="Seu nome completo"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setError('');
+                    }}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+
+              {turmas.length > 0 && (
+                <div className="input-group animate-fade-in" style={{ marginBottom: '16px' }}>
+                  <label htmlFor="turma">Sua Turma</label>
+                  <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+                    <Users size={18} className="input-icon" style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
+                    <select
+                      id="turma"
+                      value={turmaId}
+                      onChange={(e) => {
+                        setTurmaId(e.target.value);
+                        setError('');
+                      }}
+                      className="select-custom"
+                      style={{
+                        width: '100%',
+                        padding: '12px 12px 12px 40px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-color)',
+                        fontSize: '14px',
+                        outline: 'none',
+                        backgroundColor: '#fafbfa',
+                        color: 'var(--text-main)',
+                        appearance: 'none',
+                        backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%23627264\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/><path d=\'M0 0h24v24H0z\' fill=\'none\'/></svg>")',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center'
+                      }}
+                      disabled={isLoading}
+                      required
+                    >
+                      <option value="">Selecione sua turma...</option>
+                      {turmas.map(t => (
+                        <option key={t.id} value={t.id}>{t.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* E-mail */}

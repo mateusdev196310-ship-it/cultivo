@@ -80,6 +80,11 @@ body {
 
 /* Para todos os celulares e tablets (telas de até 1024px): remove molduras e exibe em tela cheia de forma 100% responsiva */
 @media (max-width: 1024px) {
+  html, body {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
   body {
     background-color: var(--bg-app);
     display: block;
@@ -89,13 +94,16 @@ body {
     display: block;
     width: 100%;
     height: 100%;
+    height: 100dvh;
   }
   .mobile-frame {
     border-radius: 0 !important;
     max-width: 100vw !important;
-    max-height: 100vh !important;
+    max-height: 100% !important;
+    max-height: 100dvh !important;
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100% !important;
+    height: 100dvh !important;
     border: none !important;
     box-shadow: none !important;
   }
@@ -191,24 +199,27 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  padding-bottom: 90px; /* Margem para a navbar não cobrir conteúdo */
+  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); /* Margem para a navbar não cobrir conteúdo */
 }
 
 /* Barra de Navegação Inferior */
 .bottom-nav {
   height: 72px;
+  height: calc(72px + env(safe-area-inset-bottom, 0px));
   background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-around;
-  align-items: center;
+  align-items: flex-start;
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 10;
   padding: 0 10px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
 }
 
 .nav-item {
@@ -225,7 +236,7 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   width: 64px;
-  height: 100%;
+  height: 72px;
 }
 
 .nav-item svg {
