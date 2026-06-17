@@ -152,7 +152,7 @@ export default function Ranking({ currentUser, dbUpdateTick }) {
                       </div>
                       <div className="row-info">
                         <span className="row-name">{student.name} {isSelf && <strong className="text-green">(Você)</strong>}</span>
-                        <span className="row-email">{student.email}</span>
+                        {currentUser.isAdmin && <span className="row-email">{student.email}</span>}
                       </div>
                     </div>
                     <div className="row-right">
