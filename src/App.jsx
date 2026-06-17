@@ -64,13 +64,39 @@ export default function App() {
     const savedEnabled = localStorage.getItem(NOTIF_ENABLED_KEY) === 'true';
     setNotifEnabled(savedEnabled);
 
-    // Registrar Service Worker
+    // Registrar Service Worker com recarga automática se houver atualização
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then((registration) => {
         swRef.current = registration;
         console.log('[Cultiva] SW registrado:', registration.scope);
+
+        // Forçar busca de updates na inicialização
+        registration.update().catch(err => console.warn('[SW Update] Erro:', err));
+
+        // Ouvir atualizações que estão sendo ativadas
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'activated') {
+                console.log('[Cultiva SW] Novo SW ativado! Recarregando página...');
+                window.location.reload();
+              }
+            });
+          }
+        });
       }).catch((err) => {
         console.warn('[Cultiva] Erro ao registrar SW:', err);
+      });
+
+      // Recarrega quando o service worker assume o controle da página
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          console.log('[Cultiva SW] Controle alterado! Recarregando página...');
+          window.location.reload();
+        }
       });
     }
   }, []);
