@@ -3055,3 +3055,36 @@ select option {
   opacity: 1;
   pointer-events: auto;
 }
+
+/* Botão de Atualização Global de Dados */
+.btn-global-refresh {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  width: 34px;
+  height: 34px;
+}
+
+.btn-global-refresh:hover {
+  background-color: var(--primary-light);
+  transform: scale(1.08);
+}
+
+.btn-global-refresh:active {
+  transform: scale(0.92);
+}
+
+.btn-global-refresh.spinning {
+  pointer-events: none;
+}
+
+.btn-global-refresh.spinning svg {
+  animation: spin 1s linear infinite;
+}

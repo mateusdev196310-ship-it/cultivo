@@ -30,7 +30,7 @@ function pontosParaNota(pts) {
   return { letra: 'E', cor: '#9e9e9e' };
 }
 
-export default function Admin() {
+export default function Admin({ dbUpdateTick }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [plants, setPlants] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -79,7 +79,7 @@ export default function Admin() {
     setStats({ totalPlants, totalStudents: uniqueStudents, totalUpdates, totalComments, totalLikes });
   };
 
-  useEffect(() => { loadAdminData(); }, []);
+  useEffect(() => { loadAdminData(); }, [dbUpdateTick]);
 
   // Agrupar alunos por turma
   const getAlunosByTurma = (turmaId) => {

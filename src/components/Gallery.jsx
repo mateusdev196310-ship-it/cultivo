@@ -9,7 +9,7 @@ const PHOTO_PRESETS = [
   { label: "Planta Crescida", url: "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=600&auto=format&fit=crop&q=60" }
 ];
 
-export default function Gallery({ user }) {
+export default function Gallery({ user, dbUpdateTick }) {
   const [plants, setPlants] = useState([]);
   const [selectedPlant, setSelectedPlant] = useState(null);
   
@@ -59,7 +59,7 @@ export default function Gallery({ user }) {
 
   useEffect(() => {
     loadPlants();
-  }, [user]);
+  }, [user, dbUpdateTick]);
 
   // Submeter nova planta (Dia 1)
   const handleAddPlant = (e) => {

@@ -3,7 +3,7 @@ import { Heart, MessageSquare, Send, Trash2, Loader2 } from 'lucide-react';
 import { getPosts, toggleLikePost, addCommentToPost, deletePost, deleteComment, getUsers, formatDateBR, normalizeDbObject } from '../db';
 import { supabase } from '../supabaseClient';
 
-export default function Feed({ user }) {
+export default function Feed({ user, dbUpdateTick }) {
   const [posts, setPosts] = useState([]);
   const [commentInputs, setCommentInputs] = useState({}); // { [postId]: '' }
   const [loading, setLoading] = useState(true);
@@ -111,7 +111,7 @@ export default function Feed({ user }) {
     }
 
     loadPosts();
-  }, [user]);
+  }, [user, dbUpdateTick]);
 
   // Inscrição em Tempo Real para Notificar sobre novos Posts no Feed
   useEffect(() => {
@@ -119,41 +119,45 @@ export default function Feed({ user }) {
 
     const channel = supabase
       .channel('feed-new-posts')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
-        const newPost = payload.new;
-        if (!newPost) return;
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, (payload) => {
+        // Recarrega os posts na tela para sincronizar os likes, comentários, remoções ou inserções
+        loadPosts();
 
-        const currentUser = JSON.parse(localStorage.getItem('cultiva_user') || 'null');
-        if (!currentUser) return;
+        // Se for um novo post (INSERT), enviamos a notificação se for da mesma turma
+        if (payload.eventType === 'INSERT') {
+          const newPost = payload.new;
+          if (!newPost) return;
 
-        const authorEmail = (newPost.studentEmail || '').trim().toLowerCase();
-        const currentUserEmail = (currentUser.email || '').trim().toLowerCase();
+          const currentUser = JSON.parse(localStorage.getItem('cultiva_user') || 'null');
+          if (!currentUser) return;
 
-        // Não notifica se o autor do post for o próprio usuário
-        if (authorEmail === currentUserEmail) return;
+          const authorEmail = (newPost.studentEmail || '').trim().toLowerCase();
+          const currentUserEmail = (currentUser.email || '').trim().toLowerCase();
 
-        // Verifica se é da mesma turma ou se é administrador
-        const allUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
-        const authorUser = allUsers.find(u => u.email && u.email.trim().toLowerCase() === authorEmail);
-        const authorTurmaId = authorUser ? authorUser.turmaId : null;
+          // Não notifica se o autor do post for o próprio usuário
+          if (authorEmail === currentUserEmail) return;
 
-        const isSameClass = currentUser.isAdmin || (currentUser.turmaId && currentUser.turmaId === authorTurmaId);
+          // Verifica se é da mesma turma ou se é administrador
+          const allUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+          const authorUser = allUsers.find(u => u.email && u.email.trim().toLowerCase() === authorEmail);
+          const authorTurmaId = authorUser ? authorUser.turmaId : null;
 
-        if (isSameClass) {
-          const notifEnabled = localStorage.getItem('cultiva_notif_enabled') === 'true';
-          if (notifEnabled && Notification.permission === 'granted') {
-            try {
-              new Notification('🌿 Nova evolução no Feed!', {
-                body: `${newPost.studentName} postou sobre ${newPost.plantName} (Dia ${newPost.day})!`,
-                icon: '/favicon.svg',
-                tag: 'cultiva-new-post-' + newPost.id,
-              });
-            } catch (e) {
-              console.warn('[Realtime Notification] Erro ao disparar notificação:', e);
+          const isSameClass = currentUser.isAdmin || (currentUser.turmaId && currentUser.turmaId === authorTurmaId);
+
+          if (isSameClass) {
+            const notifEnabled = localStorage.getItem('cultiva_notif_enabled') === 'true';
+            if (notifEnabled && Notification.permission === 'granted') {
+              try {
+                new Notification('🌿 Nova evolução no Feed!', {
+                  body: `${newPost.studentName} postou sobre ${newPost.plantName} (Dia ${newPost.day})!`,
+                  icon: '/favicon.svg',
+                  tag: 'cultiva-new-post-' + newPost.id,
+                });
+              } catch (e) {
+                console.warn('[Realtime Notification] Erro ao disparar notificação:', e);
+              }
             }
           }
-          // Recarrega em background para atualizar a lista
-          loadPosts();
         }
       })
       .subscribe();

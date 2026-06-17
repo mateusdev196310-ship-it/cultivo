@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, Medal, Award, User, RefreshCw } from 'lucide-react';
 import { getLeaderboard, getTurmas, fetchLeaderboard } from '../db';
 
-export default function Ranking({ currentUser }) {
+export default function Ranking({ currentUser, dbUpdateTick }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [turmaName, setTurmaName] = useState('');
 
@@ -26,7 +26,7 @@ export default function Ranking({ currentUser }) {
 
   useEffect(() => {
     loadRanking();
-  }, [currentUser]);
+  }, [currentUser, dbUpdateTick]);
 
   // Encontrar a posição do próprio usuário
   const userRankIndex = leaderboard.findIndex(u => u.email === currentUser.email);

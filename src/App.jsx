@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sprout, User, Shield, Bell, BellOff } from 'lucide-react';
+import { Sprout, User, Shield, Bell, BellOff, RefreshCw } from 'lucide-react';
 import { initDb, checkInactivityPenalties, normalizeDbObject, clearLocalUserData } from './db';
 import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
@@ -26,6 +26,8 @@ export default function App() {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifStatus, setNotifStatus] = useState(''); // mensagem de status para o usuário
   const [installPrompt, setInstallPrompt] = useState(null); // controle de instalação do PWA
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dbUpdateTick, setDbUpdateTick] = useState(0);
   const intervalRef = useRef(null);
   const swRef = useRef(null); // referência para o ServiceWorkerRegistration
 
@@ -219,6 +221,42 @@ export default function App() {
     };
   }, [notifEnabled]);
 
+  // Sincronização em tempo real global
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('global-realtime-sync')
+      .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
+        console.log('[Realtime Sync] Alteração detectada no banco:', payload.table, payload.eventType);
+        try {
+          await initDb(true);
+          setDbUpdateTick(prev => prev + 1);
+        } catch (err) {
+          console.warn('[Realtime Sync] Falha ao sincronizar dados recebidos:', err);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await initDb(true);
+      setDbUpdateTick(prev => prev + 1);
+      console.log('[Manual Sync] Banco de dados sincronizado manualmente!');
+    } catch (err) {
+      console.warn('[Manual Sync] Falha ao sincronizar manualmente:', err);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 800);
+    }
+  };
+
   // Toggle de ativar/desativar notificações
   const handleToggleNotifications = async () => {
     if (notifEnabled) {
@@ -340,6 +378,14 @@ export default function App() {
           </div>
 
           <div className="header-user-profile">
+            <button
+              onClick={handleManualRefresh}
+              className={`btn-global-refresh ${isRefreshing ? 'spinning' : ''}`}
+              title="Atualizar dados do servidor"
+              disabled={isRefreshing}
+            >
+              <RefreshCw size={16} />
+            </button>
             {installPrompt && (
               <button className="btn-install-pwa animate-pulse" onClick={handleInstallPwa}>
                 📥 Baixar App
@@ -399,10 +445,10 @@ export default function App() {
               onGoToRanking={() => setActiveTab('ranking')}
             />
           )}
-          {activeTab === 'gallery' && <Gallery user={user} />}
-          {activeTab === 'feed' && <Feed user={user} />}
-          {activeTab === 'ranking' && <Ranking currentUser={user} />}
-          {activeTab === 'admin' && user.isAdmin && <Admin />}
+          {activeTab === 'gallery' && <Gallery user={user} dbUpdateTick={dbUpdateTick} />}
+          {activeTab === 'feed' && <Feed user={user} dbUpdateTick={dbUpdateTick} />}
+          {activeTab === 'ranking' && <Ranking currentUser={user} dbUpdateTick={dbUpdateTick} />}
+          {activeTab === 'admin' && user.isAdmin && <Admin dbUpdateTick={dbUpdateTick} />}
         </main>
 
         {/* Barra de Navegação Inferior */}
