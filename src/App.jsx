@@ -288,12 +288,12 @@ export default function App() {
   // Sincronizar assinatura push em segundo plano se ativo
   useEffect(() => {
     const syncPushSubscription = async () => {
-      if (notifEnabled && user && !user.isAdmin && swRef.current && supabase) {
+      if (notifEnabled && user && !user.isAdmin && swRef.current && supabase && typeof window !== 'undefined' && 'Notification' in window) {
         try {
           const registration = swRef.current;
           let subscription = await registration.pushManager.getSubscription();
           
-          if (!subscription && Notification.permission === 'granted') {
+          if (!subscription && window.Notification.permission === 'granted') {
             const publicVapidKey = window.CULTIVA_CONFIG?.VITE_VAPID_PUBLIC_KEY || "BK9gu45ouwu5ajLR1P5C4g2qc11u4RwjV7sxWxeBYBOB1eHwPYRaanS0d4t_N0f0Yayjrxfl2zRnSSNYS5Nq2zg";
             const convertedKey = urlBase64ToUint8Array(publicVapidKey);
             subscription = await registration.pushManager.subscribe({
