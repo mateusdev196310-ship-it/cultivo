@@ -551,7 +551,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <Auth onLogin={handleLogin} />;
+    return <Auth onLogin={handleLogin} installPrompt={installPrompt} onInstallPwa={handleInstallPwa} />;
   }
 
   const preferredHour = parseInt(localStorage.getItem(NOTIF_HOUR_KEY) || DEFAULT_HOUR);

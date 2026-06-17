@@ -4,7 +4,7 @@ import { loginUser, registerStudent, getTurmas } from '../db';
 
 const ADMIN_EMAILS = ['esterferreira1800@gmail.com', 'esterferreira18000@gmail.com'];
 
-export default function Auth({ onLogin }) {
+export default function Auth({ onLogin, installPrompt, onInstallPwa }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -73,6 +73,53 @@ export default function Auth({ onLogin }) {
           <h1>Cultiva APP</h1>
           <p className="subtitle">Da Semente à Planta • Educação Ambiental</p>
         </div>
+
+        {/* Banner de Instalação do PWA */}
+        {installPrompt && (
+          <div 
+            className="install-pwa-banner animate-pulse" 
+            onClick={onInstallPwa}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'var(--primary-light)',
+              border: '1px solid rgba(46, 125, 50, 0.2)',
+              borderRadius: '16px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              cursor: 'pointer',
+              color: 'var(--primary-dark)',
+              gap: '10px',
+              transition: 'all 0.2s ease',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>📥</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700 }}>Baixar Aplicativo</span>
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Instale o Cultiva na sua tela inicial!</span>
+              </div>
+            </div>
+            <button 
+              type="button"
+              className="btn btn-sm btn-primary"
+              style={{
+                padding: '4px 10px',
+                fontSize: '10px',
+                borderRadius: '12px',
+                fontWeight: 700,
+                border: 'none',
+                boxShadow: 'none',
+                backgroundColor: 'var(--primary)',
+                color: 'white'
+              }}
+            >
+              Instalar
+            </button>
+          </div>
+        )}
 
         {/* Seletor de Modo (Entrar vs Cadastrar) */}
         <div className="auth-mode-selector" style={{
