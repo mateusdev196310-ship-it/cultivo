@@ -1,10 +1,18 @@
 services:
-  - type: static
+  - type: web
     name: cultiva-app
-    buildCommand: npm run build
-    publishDir: dist
+    runtime: node
+    rootDir: cultivo
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
     envVars:
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
+
+  - type: static
+    name: aph-charles
+    rootDir: aph_charles
+    buildCommand: npm install && npm run build
+    publishDir: dist
