@@ -340,10 +340,15 @@ export async function syncLocalToSupabase() {
 export async function initDb(forceSync = false) {
   // Remover dados de teste para evitar ressincronização indesejada
   if (forceSync) {
+    const loggedInUserStr = localStorage.getItem('cultiva_user');
+    const loggedInEmail = loggedInUserStr ? JSON.parse(loggedInUserStr).email?.trim().toLowerCase() : null;
+
     const isTestUser = (email, name) => {
       const e = (email || '').toLowerCase().trim();
       const n = (name || '').toLowerCase().trim();
-      return e.includes('test') || e.includes('teste') || n === 'test' || n === 'teste' || e === 'mateus9811sc3@gmail.com' || e === 'leveday.oficial@gmail.com';
+      // Não considera como usuário de teste a conta do usuário atualmente logado ou as contas do desenvolvedor
+      if (e === loggedInEmail || e === 'mateus9811sc3@gmail.com' || e === 'leveday.oficial@gmail.com') return false;
+      return e.includes('test') || e.includes('teste') || n === 'test' || n === 'teste';
     };
 
     let localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
@@ -371,14 +376,6 @@ export async function initDb(forceSync = false) {
     if (localPosts.some(p => isTestUser(p.studentEmail, p.studentName))) {
       localPosts = localPosts.filter(p => !isTestUser(p.studentEmail, p.studentName));
       localStorage.setItem('cultiva_posts', JSON.stringify(localPosts));
-    }
-
-    const session = localStorage.getItem('cultiva_user');
-    if (session) {
-      const parsed = JSON.parse(session);
-      if (isTestUser(parsed.email, parsed.name)) {
-        localStorage.removeItem('cultiva_user');
-      }
     }
   }
 
