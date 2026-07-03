@@ -1,0 +1,10 @@
+{
+  "name": "cultiva-root-monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "npm --prefix cultivo install",
+    "build": "npm --prefix cultivo run build",
+    "start": "node cultivo/server.js"
+  }
+}
