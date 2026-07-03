@@ -137,11 +137,16 @@ export default function App() {
       if (!user || !supabase) return;
       try {
         const cleanEmail = user.email.trim().toLowerCase();
-        const { data: latestProfile } = await supabase
+        const { data: latestProfile, error } = await supabase
           .from('users')
           .select('*')
           .eq('email', cleanEmail)
           .maybeSingle();
+        
+        if (error) {
+          console.warn('[App Sync] Falha ao consultar perfil no Supabase:', error);
+          return;
+        }
         
         if (latestProfile) {
           const normalizedProfile = normalizeDbObject(latestProfile);
@@ -153,9 +158,12 @@ export default function App() {
             console.log('[App Sync] Perfil do usuário atualizado a partir do banco:', updated);
           }
         } else {
-          console.log('[App Sync] Perfil não encontrado no banco. Efetuando logout automático.');
-          clearLocalUserData(cleanEmail);
-          setUser(null);
+          // Apenas desloga se não for administrador
+          if (!user.isAdmin) {
+            console.log('[App Sync] Perfil não encontrado no banco. Efetuando logout automático.');
+            clearLocalUserData(cleanEmail);
+            setUser(null);
+          }
         }
       } catch (err) {
         console.warn('[App Sync] Falha ao sincronizar perfil do usuário:', err);

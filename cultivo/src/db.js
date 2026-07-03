@@ -209,9 +209,11 @@ export async function syncLocalToSupabase() {
     if (!errUser) {
       if (!serverUser) {
         // Se o usuário logado não existe no Supabase, significa que foi excluído pelo administrador.
-        // Devemos limpar os dados locais e deslogar.
-        console.log(`[Cultiva Sync] Usuário ${cleanEmail} não existe no Supabase. Limpando dados locais.`);
-        clearLocalUserData(cleanEmail);
+        // Devemos limpar os dados locais e deslogar (se NÃO for administrador).
+        if (!localUser.isAdmin) {
+          console.log(`[Cultiva Sync] Usuário ${cleanEmail} não existe no Supabase. Limpando dados locais.`);
+          clearLocalUserData(cleanEmail);
+        }
         return; // interrompe a sincronização
       } else {
         const normalizedServerUser = normalizeDbObject(serverUser);
