@@ -50,30 +50,45 @@ export default function App() {
   // Inicializar banco de dados e verificar login ativo
   useEffect(() => {
     const startDb = async () => {
-      await initDb(true);
-      setIsDbReady(true);
+      try {
+        await initDb(true);
+      } catch (err) {
+        console.error('[App] Erro ao inicializar banco de dados:', err);
+      } finally {
+        setIsDbReady(true);
+      }
 
-      const savedUser = localStorage.getItem('cultiva_user');
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        // Rodar verificação de inatividade e atualizar pontos locais se mudou
-        const penaltyUpdated = checkInactivityPenalties(parsed.email);
-        if (penaltyUpdated) {
-          const latestUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
-          const cleanEmail = parsed.email.trim().toLowerCase();
-          const found = latestUsers.find(u => u.email === cleanEmail);
-          if (found) {
-            setUser(found);
-            localStorage.setItem('cultiva_user', JSON.stringify(found));
+      try {
+        const savedUser = localStorage.getItem('cultiva_user');
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          if (parsed && parsed.email) {
+            // Rodar verificação de inatividade e atualizar pontos locais se mudou
+            const penaltyUpdated = checkInactivityPenalties(parsed.email);
+            if (penaltyUpdated) {
+              const latestUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+              const cleanEmail = parsed.email.trim().toLowerCase();
+              const found = latestUsers.find(u => u.email === cleanEmail);
+              if (found) {
+                setUser(found);
+                localStorage.setItem('cultiva_user', JSON.stringify(found));
+              }
+            }
           }
         }
+      } catch (err) {
+        console.warn('[App] Falha ao verificar login salvo ou penalidade:', err);
       }
     };
     startDb();
 
-    const savedUser = localStorage.getItem('cultiva_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    try {
+      const savedUser = localStorage.getItem('cultiva_user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } catch (e) {
+      console.warn('[App] Erro ao carregar usuário salvo inicial:', e);
     }
 
     // Verificar se notificações estavam ativadas anteriormente
@@ -158,11 +173,17 @@ export default function App() {
             console.log('[App Sync] Perfil do usuário atualizado a partir do banco:', updated);
           }
         } else {
-          // Apenas desloga se não for administrador
-          if (!user.isAdmin) {
-            console.log('[App Sync] Perfil não encontrado no banco. Efetuando logout automático.');
-            clearLocalUserData(cleanEmail);
-            setUser(null);
+          // Em vez de efetuar logout automático e deletar todos os dados locais do aluno,
+          // tentamos cadastrar o usuário local no Supabase (em caso de cadastro offline anterior)
+          console.log('[App Sync] Perfil não encontrado no banco. Sincronizando usuário local para o Supabase...');
+          const { error: insertErr } = await supabase
+            .from('users')
+            .insert([user]);
+          
+          if (insertErr) {
+            console.warn('[App Sync] Falha ao sincronizar usuário no Supabase:', insertErr);
+          } else {
+            console.log('[App Sync] Usuário sincronizado no Supabase com sucesso!');
           }
         }
       } catch (err) {

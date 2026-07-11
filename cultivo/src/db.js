@@ -208,13 +208,17 @@ export async function syncLocalToSupabase() {
 
     if (!errUser) {
       if (!serverUser) {
-        // Se o usuário logado não existe no Supabase, significa que foi excluído pelo administrador.
-        // Devemos limpar os dados locais e deslogar (se NÃO for administrador).
-        if (!localUser.isAdmin) {
-          console.log(`[Cultiva Sync] Usuário ${cleanEmail} não existe no Supabase. Limpando dados locais.`);
-          clearLocalUserData(cleanEmail);
+        // Se o usuário logado não existe no Supabase, pode ser um novo cadastro offline.
+        // Vamos tentar registrá-lo no Supabase.
+        console.log(`[Cultiva Sync] Usuário ${cleanEmail} não existe no Supabase. Cadastrando no banco remoto...`);
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([localUser]);
+        if (insertError) {
+          console.error('[Cultiva Sync] Erro ao sincronizar novo usuário para o Supabase:', insertError);
+        } else {
+          console.log('[Cultiva Sync] Novo usuário sincronizado com sucesso para o Supabase!');
         }
-        return; // interrompe a sincronização
       } else {
         const normalizedServerUser = normalizeDbObject(serverUser);
         if (
@@ -338,142 +342,185 @@ export async function syncLocalToSupabase() {
 
 // Inicializar banco de dados no LocalStorage se não existir
 export async function initDb(forceSync = false) {
-  // Remover dados de teste para evitar ressincronização indesejada
-  if (forceSync) {
-    const loggedInUserStr = localStorage.getItem('cultiva_user');
-    const loggedInEmail = loggedInUserStr ? JSON.parse(loggedInUserStr).email?.trim().toLowerCase() : null;
+  try {
+    // Remover dados de teste para evitar ressincronização indesejada
+    if (forceSync) {
+      let loggedInEmail = null;
+      try {
+        const loggedInUserStr = localStorage.getItem('cultiva_user');
+        loggedInEmail = loggedInUserStr ? JSON.parse(loggedInUserStr)?.email?.trim().toLowerCase() : null;
+      } catch (e) {
+        console.warn('[initDb] Falha ao analisar cultiva_user:', e);
+      }
 
-    const isTestUser = (email, name) => {
-      const e = (email || '').toLowerCase().trim();
-      const n = (name || '').toLowerCase().trim();
-      // Não considera como usuário de teste a conta do usuário atualmente logado ou as contas do desenvolvedor
-      if (e === loggedInEmail || e === 'mateus9811sc3@gmail.com' || e === 'leveday.oficial@gmail.com') return false;
-      return e.includes('test') || e.includes('teste') || n === 'test' || n === 'teste';
-    };
+      const isTestUser = (email, name) => {
+        const e = (email || '').toLowerCase().trim();
+        const n = (name || '').toLowerCase().trim();
+        // Não considera como usuário de teste a conta do usuário atualmente logado ou as contas do desenvolvedor
+        if (e === loggedInEmail || e === 'mateus9811sc3@gmail.com' || e === 'leveday.oficial@gmail.com') return false;
+        return e.includes('test') || e.includes('teste') || n === 'test' || n === 'teste';
+      };
 
-    let localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
-    const testUsers = localUsers.filter(u => isTestUser(u.email, u.name));
-    if (testUsers.length > 0) {
-      localUsers = localUsers.filter(u => !isTestUser(u.email, u.name));
-      localStorage.setItem('cultiva_users', JSON.stringify(localUsers));
-      console.log(`[Cultiva Cleanup] Removidos ${testUsers.length} usuários locais de teste.`);
+      let localUsers = [];
+      try {
+        localUsers = JSON.parse(localStorage.getItem('cultiva_users') || '[]');
+      } catch (e) {
+        console.warn('[initDb] Falha ao carregar cultiva_users:', e);
+      }
       
-      if (supabase) {
-        Promise.all(testUsers.map(async (tu) => {
-          console.log(`[Cultiva Cleanup] Removendo usuário de teste do Supabase: ${tu.email}`);
-          await supabase.from('users').delete().eq('email', tu.email);
-        })).catch(err => console.warn('[Cultiva Cleanup] Erro ao deletar no Supabase:', err));
+      const testUsers = localUsers.filter(u => isTestUser(u.email, u.name));
+      if (testUsers.length > 0) {
+        localUsers = localUsers.filter(u => !isTestUser(u.email, u.name));
+        localStorage.setItem('cultiva_users', JSON.stringify(localUsers));
+        console.log(`[Cultiva Cleanup] Removidos ${testUsers.length} usuários locais de teste.`);
+        
+        if (supabase) {
+          Promise.all(testUsers.map(async (tu) => {
+            console.log(`[Cultiva Cleanup] Removendo usuário de teste do Supabase: ${tu.email}`);
+            await supabase.from('users').delete().eq('email', tu.email);
+          })).catch(err => console.warn('[Cultiva Cleanup] Erro ao deletar no Supabase:', err));
+        }
+      }
+
+      let localPlants = [];
+      try {
+        localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+        if (localPlants.some(p => isTestUser(p.studentEmail, p.studentName))) {
+          localPlants = localPlants.filter(p => !isTestUser(p.studentEmail, p.studentName));
+          localStorage.setItem('cultiva_plants', JSON.stringify(localPlants));
+        }
+      } catch (e) {
+        console.warn('[initDb] Falha ao carregar cultiva_plants:', e);
+      }
+
+      let localPosts = [];
+      try {
+        localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+        if (localPosts.some(p => isTestUser(p.studentEmail, p.studentName))) {
+          localPosts = localPosts.filter(p => !isTestUser(p.studentEmail, p.studentName));
+          localStorage.setItem('cultiva_posts', JSON.stringify(localPosts));
+        }
+      } catch (e) {
+        console.warn('[initDb] Falha ao carregar cultiva_posts:', e);
       }
     }
 
-    let localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
-    if (localPlants.some(p => isTestUser(p.studentEmail, p.studentName))) {
-      localPlants = localPlants.filter(p => !isTestUser(p.studentEmail, p.studentName));
-      localStorage.setItem('cultiva_plants', JSON.stringify(localPlants));
+    // Limpeza forçada única dos caches e usuários antigos locais para migração limpa para o Supabase
+    if (localStorage.getItem('cultiva_cache_version') !== 'v2') {
+      localStorage.removeItem('cultiva_plants');
+      localStorage.removeItem('cultiva_posts');
+      localStorage.removeItem('cultiva_users');
+      localStorage.removeItem('cultiva_user');
+      localStorage.removeItem('cultiva_feedback');
+      localStorage.removeItem('cultiva_turmas');
+      localStorage.setItem('cultiva_cache_version', 'v2');
     }
 
-    let localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-    if (localPosts.some(p => isTestUser(p.studentEmail, p.studentName))) {
-      localPosts = localPosts.filter(p => !isTestUser(p.studentEmail, p.studentName));
-      localStorage.setItem('cultiva_posts', JSON.stringify(localPosts));
+    if (!localStorage.getItem('cultiva_plants')) {
+      localStorage.setItem('cultiva_plants', JSON.stringify(initialPlants));
     }
-  }
-
-  // Limpeza forçada única dos caches e usuários antigos locais para migração limpa para o Supabase
-  if (localStorage.getItem('cultiva_cache_version') !== 'v2') {
-    localStorage.removeItem('cultiva_plants');
-    localStorage.removeItem('cultiva_posts');
-    localStorage.removeItem('cultiva_users');
-    localStorage.removeItem('cultiva_user');
-    localStorage.removeItem('cultiva_feedback');
-    localStorage.removeItem('cultiva_turmas');
-    localStorage.setItem('cultiva_cache_version', 'v2');
-  }
-
-  if (!localStorage.getItem('cultiva_plants')) {
-    localStorage.setItem('cultiva_plants', JSON.stringify(initialPlants));
-  }
-  if (!localStorage.getItem('cultiva_posts')) {
-    localStorage.setItem('cultiva_posts', JSON.stringify(initialPosts));
-  }
-  if (!localStorage.getItem('cultiva_users')) {
-    localStorage.setItem('cultiva_users', JSON.stringify(initialUsers));
-  }
-  if (!localStorage.getItem('cultiva_feedback')) {
-    localStorage.setItem('cultiva_feedback', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('cultiva_turmas')) {
-    localStorage.setItem('cultiva_turmas', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('cultiva_activities')) {
-    localStorage.setItem('cultiva_activities', JSON.stringify([]));
-  }
-
-  // Sincronização com o Supabase (se disponível e forçada no início do app)
-  if (supabase && forceSync) {
-    // Primeiro envia quaisquer alterações pendentes que foram salvas offline
-    await syncLocalToSupabase();
-
-    try {
-      const [
-        { data: turmas, error: errorTurmas },
-        { data: users, error: errorUsers },
-        { data: plants, error: errorPlants },
-        { data: posts, error: errorPosts },
-        { data: feedback, error: errorFeedback },
-        { data: activities, error: errorActivities }
-      ] = await Promise.all([
-        supabase.from('turmas').select('*'),
-        supabase.from('users').select('*'),
-        supabase.from('plants').select('*'),
-        supabase.from('posts').select('*'),
-        supabase.from('feedback').select('*'),
-        supabase.from('activities').select('*')
-      ]);
-
-      if (errorTurmas) console.warn('[Supabase Sync] Erro ao buscar turmas:', errorTurmas);
-      else if (turmas) localStorage.setItem('cultiva_turmas', JSON.stringify(normalizeDbObject(turmas)));
-
-      if (errorUsers) console.warn('[Supabase Sync] Erro ao buscar usuários:', errorUsers);
-      else if (users) localStorage.setItem('cultiva_users', JSON.stringify(normalizeDbObject(users)));
-
-      if (errorPlants) console.warn('[Supabase Sync] Erro ao buscar plantas:', errorPlants);
-      else if (plants) {
-        const normalizedPlants = normalizeDbObject(plants);
-        const localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
-        const unsyncedPlants = localPlants.filter(lp => !normalizedPlants.some(sp => sp.id === lp.id));
-        localStorage.setItem('cultiva_plants', JSON.stringify([...normalizedPlants, ...unsyncedPlants]));
-      }
-
-      if (errorPosts) console.warn('[Supabase Sync] Erro ao buscar posts:', errorPosts);
-      else if (posts) {
-        const normalizedPosts = normalizeDbObject(posts);
-        const localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
-        const unsyncedPosts = localPosts.filter(lp => !normalizedPosts.some(sp => sp.id === lp.id));
-        const sortedPosts = [...normalizedPosts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
-        localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
-      }
-
-      if (errorFeedback) console.warn('[Supabase Sync] Erro ao buscar feedback:', errorFeedback);
-      else if (feedback) {
-        const intMap = { 4: '😍', 3: '🙂', 2: '😐', 1: '😢' };
-        const normalizedFeedback = normalizeDbObject(feedback);
-        const mappedFeedback = normalizedFeedback.map(f => {
-          const emojiVote = intMap[f.vote] || f.vote;
-          return { ...f, vote: emojiVote };
-        });
-        localStorage.setItem('cultiva_feedback', JSON.stringify(mappedFeedback));
-      }
-
-      if (errorActivities) console.warn('[Supabase Sync] Erro ao buscar atividades:', errorActivities);
-      else if (activities) {
-        localStorage.setItem('cultiva_activities', JSON.stringify(normalizeDbObject(activities)));
-      }
-
-      console.log('%c[Cultiva] Dados sincronizados com o Supabase com sucesso!', 'color: #22c55e; font-weight: bold;');
-    } catch (err) {
-      console.warn('[Cultiva] Falha na sincronização inicial com o Supabase. Usando cache offline:', err);
+    if (!localStorage.getItem('cultiva_posts')) {
+      localStorage.setItem('cultiva_posts', JSON.stringify(initialPosts));
     }
+    if (!localStorage.getItem('cultiva_users')) {
+      localStorage.setItem('cultiva_users', JSON.stringify(initialUsers));
+    }
+    if (!localStorage.getItem('cultiva_feedback')) {
+      localStorage.setItem('cultiva_feedback', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('cultiva_turmas')) {
+      localStorage.setItem('cultiva_turmas', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('cultiva_activities')) {
+      localStorage.setItem('cultiva_activities', JSON.stringify([]));
+    }
+
+    // Sincronização com o Supabase (se disponível e forçada no início do app)
+    if (supabase && forceSync) {
+      try {
+        const doSync = async () => {
+          // Primeiro envia quaisquer alterações pendentes que foram salvas offline
+          await syncLocalToSupabase();
+
+          const [
+            { data: turmas, error: errorTurmas },
+            { data: users, error: errorUsers },
+            { data: plants, error: errorPlants },
+            { data: posts, error: errorPosts },
+            { data: feedback, error: errorFeedback },
+            { data: activities, error: errorActivities }
+          ] = await Promise.all([
+            supabase.from('turmas').select('*'),
+            supabase.from('users').select('*'),
+            supabase.from('plants').select('*'),
+            supabase.from('posts').select('*'),
+            supabase.from('feedback').select('*'),
+            supabase.from('activities').select('*')
+          ]);
+
+          if (errorTurmas) console.warn('[Supabase Sync] Erro ao buscar turmas:', errorTurmas);
+          else if (turmas) localStorage.setItem('cultiva_turmas', JSON.stringify(normalizeDbObject(turmas)));
+
+          if (errorUsers) console.warn('[Supabase Sync] Erro ao buscar usuários:', errorUsers);
+          else if (users) localStorage.setItem('cultiva_users', JSON.stringify(normalizeDbObject(users)));
+
+          if (errorPlants) console.warn('[Supabase Sync] Erro ao buscar plantas:', errorPlants);
+          else if (plants) {
+            const normalizedPlants = normalizeDbObject(plants);
+            let localPlants = [];
+            try {
+              localPlants = JSON.parse(localStorage.getItem('cultiva_plants') || '[]');
+            } catch (e) {
+              console.warn('[Supabase Sync] Falha ao ler cultiva_plants local:', e);
+            }
+            const unsyncedPlants = localPlants.filter(lp => !normalizedPlants.some(sp => sp.id === lp.id));
+            localStorage.setItem('cultiva_plants', JSON.stringify([...normalizedPlants, ...unsyncedPlants]));
+          }
+
+          if (errorPosts) console.warn('[Supabase Sync] Erro ao buscar posts:', errorPosts);
+          else if (posts) {
+            const normalizedPosts = normalizeDbObject(posts);
+            let localPosts = [];
+            try {
+              localPosts = JSON.parse(localStorage.getItem('cultiva_posts') || '[]');
+            } catch (e) {
+              console.warn('[Supabase Sync] Falha ao ler cultiva_posts local:', e);
+            }
+            const unsyncedPosts = localPosts.filter(lp => !normalizedPosts.some(sp => sp.id === lp.id));
+            const sortedPosts = [...normalizedPosts, ...unsyncedPosts].sort((a, b) => b.id.localeCompare(a.id));
+            localStorage.setItem('cultiva_posts', JSON.stringify(sortedPosts));
+          }
+
+          if (errorFeedback) console.warn('[Supabase Sync] Erro ao buscar feedback:', errorFeedback);
+          else if (feedback) {
+            const intMap = { 4: '😍', 3: '🙂', 2: '😐', 1: '😢' };
+            const normalizedFeedback = normalizeDbObject(feedback);
+            const mappedFeedback = normalizedFeedback.map(f => {
+              const emojiVote = intMap[f.vote] || f.vote;
+              return { ...f, vote: emojiVote };
+            });
+            localStorage.setItem('cultiva_feedback', JSON.stringify(mappedFeedback));
+          }
+
+          if (errorActivities) console.warn('[Supabase Sync] Erro ao buscar atividades:', errorActivities);
+          else if (activities) {
+            localStorage.setItem('cultiva_activities', JSON.stringify(normalizeDbObject(activities)));
+          }
+        };
+
+        // Timeout de 3 segundos para a sincronização inicial
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Limite de tempo de sincronização remota excedido (3s)')), 3000)
+        );
+
+        await Promise.race([doSync(), timeoutPromise]);
+        console.log('%c[Cultiva] Dados sincronizados com o Supabase com sucesso!', 'color: #22c55e; font-weight: bold;');
+      } catch (err) {
+        console.warn('[Cultiva] Falha ou timeout na sincronização inicial com o Supabase. Usando cache offline:', err);
+      }
+    }
+  } catch (criticalErr) {
+    console.error('[initDb] Erro crítico geral na inicialização do banco local:', criticalErr);
   }
 }
 
