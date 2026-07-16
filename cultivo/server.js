@@ -274,6 +274,25 @@ const server = http.createServer((req, res) => {
   });
 });
 
+// Função para realizar queries leves periódicas no Supabase e mantê-lo ativo (evitar pausa automática de 7 dias)
+async function keepSupabaseAlive() {
+  if (!supabase) {
+    console.warn('[Keeper] Supabase não conectado. Não é possível enviar keep-alive.');
+    return;
+  }
+  try {
+    console.log('[Keeper] Enviando ping de keep-alive ao Supabase...');
+    const { data, error } = await supabase.from('users').select('email').limit(1);
+    if (error) {
+      console.error('[Keeper] Erro no keep-alive do Supabase:', error.message);
+    } else {
+      console.log('[Keeper] Supabase mantido ativo com sucesso!');
+    }
+  } catch (err) {
+    console.error('[Keeper] Falha ao enviar query keep-alive:', err.message);
+  }
+}
+
 server.listen(PORT, () => {
   console.log(`[Server] rodando na porta ${PORT}`);
 
@@ -304,4 +323,10 @@ server.listen(PORT, () => {
   } else {
     console.log('[Server] RENDER_EXTERNAL_URL/APP_URL não encontrada. Auto-ping desativado.');
   }
+
+  // Keep-alive inicial do Supabase (15 segundos após ligar)
+  setTimeout(keepSupabaseAlive, 15000);
+
+  // Executar a cada 12 horas
+  setInterval(keepSupabaseAlive, 12 * 60 * 60 * 1000);
 });

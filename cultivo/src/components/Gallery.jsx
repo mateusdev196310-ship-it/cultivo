@@ -49,7 +49,7 @@ export default function Gallery({ user, dbUpdateTick }) {
     if (user.isAdmin) {
       studentPlants = allPlants;
     } else {
-      studentPlants = allPlants.filter(p => p.studentEmail === user.email);
+      studentPlants = allPlants.filter(p => (p.studentEmail || '').trim().toLowerCase() === (user.email || '').trim().toLowerCase());
     }
     setPlants(studentPlants);
     if (studentPlants.length > 0) {
@@ -138,7 +138,7 @@ export default function Gallery({ user, dbUpdateTick }) {
       const updated = allPlants.find(p => p.id === plantId);
       setSelectedPlant(updated || null);
     } else {
-      const filtered = allPlants.filter(p => p.studentEmail === user.email);
+      const filtered = allPlants.filter(p => (p.studentEmail || '').trim().toLowerCase() === (user.email || '').trim().toLowerCase());
       setPlants(filtered);
       const updated = filtered.find(p => p.id === plantId);
       setSelectedPlant(updated || null);
@@ -280,7 +280,7 @@ export default function Gallery({ user, dbUpdateTick }) {
           </div>
 
           {/* Regra de frequência de 7 dias */}
-          {!user.isAdmin && selectedPlant.studentEmail === user.email && (() => {
+          {!user.isAdmin && (selectedPlant.studentEmail || '').trim().toLowerCase() === (user.email || '').trim().toLowerCase() && (() => {
             const lastPhoto = selectedPlant.photos[selectedPlant.photos.length - 1];
             const lastDateStr = lastPhoto ? lastPhoto.date : selectedPlant.startDate;
             const lastDate = new Date(lastDateStr);
@@ -317,7 +317,7 @@ export default function Gallery({ user, dbUpdateTick }) {
           })()}
 
           {/* Botão de adicionar atualização semanal */}
-          {!user.isAdmin && selectedPlant.studentEmail === user.email && !showUpdateForm && (
+          {!user.isAdmin && (selectedPlant.studentEmail || '').trim().toLowerCase() === (user.email || '').trim().toLowerCase() && !showUpdateForm && (
             <button 
               className="btn btn-primary btn-block update-trigger-btn"
               onClick={() => {

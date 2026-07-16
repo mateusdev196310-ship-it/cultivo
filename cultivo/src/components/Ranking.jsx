@@ -29,7 +29,7 @@ export default function Ranking({ currentUser, dbUpdateTick }) {
   }, [currentUser, dbUpdateTick]);
 
   // Encontrar a posição do próprio usuário
-  const userRankIndex = leaderboard.findIndex(u => u.email === currentUser.email);
+  const userRankIndex = leaderboard.findIndex(u => (u.email || '').trim().toLowerCase() === (currentUser?.email || '').trim().toLowerCase());
   const userRank = userRankIndex !== -1 ? userRankIndex + 1 : null;
   const userPoints = userRankIndex !== -1 ? leaderboard[userRankIndex].points : 0;
 
@@ -140,7 +140,7 @@ export default function Ranking({ currentUser, dbUpdateTick }) {
             <div className="ranking-table-rows">
               {leaderboard.map((student, idx) => {
                 const rank = idx + 1;
-                const isSelf = student.email === currentUser.email;
+                const isSelf = (student.email || '').trim().toLowerCase() === (currentUser?.email || '').trim().toLowerCase();
                 return (
                   <div key={student.email} className={`ranking-list-row ${isSelf ? 'self-row' : ''}`}>
                     <div className="row-left">

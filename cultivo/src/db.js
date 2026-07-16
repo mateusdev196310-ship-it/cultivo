@@ -988,7 +988,7 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
   const newPlant = {
     id: newPlantId,
     studentName,
-    studentEmail,
+    studentEmail: (studentEmail || '').trim().toLowerCase(),
     name,
     species,
     startDate: todayStr,
@@ -1003,7 +1003,7 @@ export function addPlant(studentName, studentEmail, name, species, photoUrl, not
     id: 'post-' + Date.now(),
     plantId: newPlantId,
     studentName,
-    studentEmail,
+    studentEmail: (studentEmail || '').trim().toLowerCase(),
     plantName: name,
     day: 1,
     date: todayStr,
@@ -1135,13 +1135,18 @@ export function toggleLikePost(postId, studentEmail) {
   if (postIndex === -1) return null;
 
   const post = posts[postIndex];
-  const likedIndex = post.likes.indexOf(studentEmail);
+  const cleanEmail = (studentEmail || '').trim().toLowerCase();
+  const normalizedLikes = (post.likes || []).map(e => (e || '').trim().toLowerCase());
+  const likedIndex = normalizedLikes.indexOf(cleanEmail);
   const isLiking = likedIndex === -1;
 
   if (isLiking) {
-    post.likes.push(studentEmail);
+    post.likes.push(cleanEmail);
   } else {
-    post.likes.splice(likedIndex, 1);
+    const origIndex = post.likes.findIndex(e => (e || '').trim().toLowerCase() === cleanEmail);
+    if (origIndex !== -1) {
+      post.likes.splice(origIndex, 1);
+    }
   }
 
   posts[postIndex] = post;
@@ -1171,7 +1176,7 @@ export function addCommentToPost(postId, studentName, studentEmail, text) {
   const newComment = {
     id: 'c-' + Date.now(),
     studentName,
-    studentEmail,
+    studentEmail: (studentEmail || '').trim().toLowerCase(),
     text,
     date: new Date().toISOString().split('T')[0]
   };
